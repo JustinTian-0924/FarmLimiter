@@ -1,0 +1,19 @@
+modules:
+  fish-depletion:
+    enabled: true
+
+    # Amount of "fish" for each chunk
+    max-fish: 64
+
+    # How long for each of the fish regenerate period
+    regen-interval-seconds: 600
+
+    # How many fish will be regenerated for each period
+    regen-amount: 8
+
+    # Will it notify the player when the chunk is out of fish
+    notify-player: true
+
+data:
+  # How long for auto-data save
+  save-interval-seconds: 1800
