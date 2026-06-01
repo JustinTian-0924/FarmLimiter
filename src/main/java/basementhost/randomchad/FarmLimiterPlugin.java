@@ -3,6 +3,7 @@ package basementhost.randomchad;
 import basementhost.randomchad.fish.FishListener;
 import basementhost.randomchad.fish.FishManager;
 import org.bukkit.Bukkit;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class FarmLimiterPlugin extends JavaPlugin {
@@ -12,10 +13,10 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
-		//Condig Generation
+		// Config generation
 		saveDefaultConfig();
 
-		// Create FishManager for the "Fish" management for each chuk
+		// Create FishManager for the "Fish" management for each chunk
 		this.fishManager = new FishManager(this);
 		this.fishManager.load();
 
@@ -24,6 +25,17 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				new FishListener(this, fishManager),
 				this
 		);
+
+		// Register command
+		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(this, fishManager);
+		PluginCommand command = getCommand("farmlimiter");
+
+		if (command != null) {
+			command.setExecutor(farmLimiterCommand);
+			command.setTabCompleter(farmLimiterCommand);
+		} else {
+			getLogger().warning("Unable to register /farmlimiter command. Please check plugin.yml.");
+		}
 
 		// Save the data periodically
 		int saveIntervalSeconds = getConfig().getInt("data.save-interval-seconds", 900);
@@ -46,7 +58,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			fishManager.save();
 		}
 
-		// cancel the auto-safe task
+		// Cancel the auto-save task
 		if (saveTaskId != -1) {
 			Bukkit.getScheduler().cancelTask(saveTaskId);
 		}

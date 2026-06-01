@@ -1,5 +1,6 @@
 package basementhost.randomchad.fish;
 
+import basementhost.randomchad.FarmLimiterPlugin;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
 import org.bukkit.entity.Entity;
@@ -8,15 +9,12 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerFishEvent;
-import org.bukkit.plugin.java.JavaPlugin;
 
 public class FishListener implements Listener {
 
-	private final JavaPlugin plugin;
 	private final FishManager fishManager;
 
-	public FishListener(JavaPlugin plugin, FishManager fishManager) {
-		this.plugin = plugin;
+	public FishListener(FarmLimiterPlugin farmLimiterPlugin, FishManager fishManager) {
 		this.fishManager = fishManager;
 	}
 

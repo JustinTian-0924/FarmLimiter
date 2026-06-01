@@ -24,8 +24,8 @@ public class FishManager {
 	}
 
 	public void load() {
+		fishPools.clear();
 		dataFile = new File(plugin.getDataFolder(), "data.yml");
-
 		if (!plugin.getDataFolder().exists()) {
 			plugin.getDataFolder().mkdirs();
 		}
@@ -153,15 +153,13 @@ public class FishManager {
 		return worldId + "_" + x + "_" + z;
 	}
 
-	private int getMaxFish() {
+	public int getMaxFish() {
 		return plugin.getConfig().getInt("modules.fish-depletion.max-fish", 64);
 	}
-
-	private int getRegenAmount() {
+	public int getRegenAmount() {
 		return plugin.getConfig().getInt("modules.fish-depletion.regen-amount", 8);
 	}
-
-	private int getRegenIntervalSeconds() {
+	public int getRegenIntervalSeconds() {
 		return plugin.getConfig().getInt("modules.fish-depletion.regen-interval-seconds", 600);
 	}
 

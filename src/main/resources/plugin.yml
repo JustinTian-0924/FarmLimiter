@@ -1,6 +1,23 @@
 name: FarmLimiter
-version: 0.0.1
+version: 0.1.0
 main: basementhost.randomchad.FarmLimiterPlugin
 api-version: '26.1.2'
 description: Limiting and nerfing farm scale and efficiency for balancing and server resources optimization
 author: Random_Chad
+
+commands:
+  farmlimiter:
+    description: Main command for FarmLimiter
+    usage: /farmlimiter
+    aliases:
+      - fl
+    permission: farmlimiter.use
+
+permissions:
+  farmlimiter.use:
+    description: Allows using FarmLimiter basic commands
+    default: op
+
+  farmlimiter.admin:
+    description: Allows using FarmLimiter admin commands
+    default: op
