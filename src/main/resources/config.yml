@@ -14,6 +14,82 @@ modules:
     # Will it notify the player when the chunk is out of fish
     notify-player: true
 
+  natural-spawn-rate-limit:
+    enabled: true
+
+    # Which spawn reasons will be limited by this module.
+    # NATURAL = normal natural mob spawning
+    # POTION_EFFECT = mobs spawned by potion effects, such as oozing / infestation
+    # RAID = mobs spawned as part of a raid
+    limited-spawn-reasons:
+      - NATURAL
+      - POTION_EFFECT
+      - RAID
+
+    # Total natural spawn resource for each chunk
+    total:
+      max-resource: 2500
+      regen-interval-seconds: 120
+      regen-amount: 120
+
+    # Per-entity natural spawn resource.
+    # If an entity type is not listed here, it only uses the total resource.
+    per-entity:
+      ZOMBIE:
+        max-resource: 120
+        regen-interval-seconds: 120
+        regen-amount: 6
+
+      SKELETON:
+        max-resource: 120
+        regen-interval-seconds: 120
+        regen-amount: 6
+
+      CREEPER:
+        max-resource: 60
+        regen-interval-seconds: 120
+        regen-amount: 4
+
+      SPIDER:
+        max-resource: 100
+        regen-interval-seconds: 120
+        regen-amount: 4
+
+      GHAST:
+        max-resource: 40
+        regen-interval-seconds: 120
+        regen-amount: 2
+
+      SLIME:
+        max-resource: 900
+        regen-interval-seconds: 30
+        regen-amount: 16
+
+      SILVERFISH:
+        max-resource: 900
+        regen-interval-seconds: 30
+        regen-amount: 32
+
+      PILLAGER:
+        max-resource: 120
+        regen-interval-seconds: 120
+        regen-amount: 6
+
+      VINDICATOR:
+        max-resource: 80
+        regen-interval-seconds: 120
+        regen-amount: 4
+
+      EVOKER:
+        max-resource: 40
+        regen-interval-seconds: 120
+        regen-amount: 2
+
+      RAVAGER:
+        max-resource: 20
+        regen-interval-seconds: 120
+        regen-amount: 1
+
 data:
   # How long for auto-data save
   save-interval-seconds: 1800

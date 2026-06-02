@@ -1,12 +1,14 @@
 package basementhost.randomchad;
 
 import basementhost.randomchad.fish.FishManager;
+import basementhost.randomchad.natural.NaturalSpawnManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,10 +20,16 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 	private final FarmLimiterPlugin plugin;
 	private final FishManager fishManager;
+	private final NaturalSpawnManager naturalSpawnManager;
 
-	public FarmLimiterCommand(FarmLimiterPlugin plugin, FishManager fishManager) {
+	public FarmLimiterCommand(
+			FarmLimiterPlugin plugin,
+			FishManager fishManager,
+			NaturalSpawnManager naturalSpawnManager
+	) {
 		this.plugin = plugin;
 		this.fishManager = fishManager;
+		this.naturalSpawnManager = naturalSpawnManager;
 	}
 
 	@Override
@@ -47,6 +55,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				handleFish(sender);
 				return true;
 
+			case "natural":
+				handleNatural(sender, args);
+				return true;
+
 			case "save":
 				handleSave(sender);
 				return true;
@@ -68,10 +80,12 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		}
 
 		fishManager.save();
+		naturalSpawnManager.save();
 
 		plugin.reloadConfig();
 
 		fishManager.load();
+		naturalSpawnManager.load();
 
 		sender.sendMessage(Component.text("FarmLimiter config and data reloaded."));
 	}
@@ -101,6 +115,58 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		player.sendMessage(Component.text("Regen: +" + regenAmount + " every " + regenIntervalSeconds + " seconds"));
 	}
 
+	private void handleNatural(CommandSender sender, String[] args) {
+		if (!(sender instanceof Player player)) {
+			sender.sendMessage(Component.text("This command can only be used by a player."));
+			return;
+		}
+
+		if (!sender.hasPermission("farmlimiter.use")) {
+			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			return;
+		}
+
+		Chunk chunk = player.getLocation().getChunk();
+
+		int remainingTotal = naturalSpawnManager.getRemainingTotalResource(chunk);
+		int maxTotal = naturalSpawnManager.getTotalMaxResource();
+		int regenAmount = naturalSpawnManager.getTotalRegenAmount();
+		int regenIntervalSeconds = naturalSpawnManager.getTotalRegenIntervalSeconds();
+
+		player.sendMessage(Component.text("Current chunk natural spawn resource:"));
+		player.sendMessage(Component.text("World: " + chunk.getWorld().getName()));
+		player.sendMessage(Component.text("Chunk X: " + chunk.getX() + ", Z: " + chunk.getZ()));
+		player.sendMessage(Component.text("Total Resource: " + remainingTotal + " / " + maxTotal));
+		player.sendMessage(Component.text("Total Regen: +" + regenAmount + " every " + regenIntervalSeconds + " seconds"));
+
+		if (args.length >= 2) {
+			String entityName = args[1].toUpperCase();
+
+			EntityType entityType;
+
+			try {
+				entityType = EntityType.valueOf(entityName);
+			} catch (IllegalArgumentException exception) {
+				player.sendMessage(Component.text("Unknown entity type: " + entityName));
+				return;
+			}
+
+			int entityResource = naturalSpawnManager.getRemainingEntityResource(chunk, entityType);
+
+			if (entityResource < 0) {
+				player.sendMessage(Component.text(entityName + " does not have a separate limit in config.yml."));
+				return;
+			}
+
+			int entityMax = naturalSpawnManager.getEntityMaxResource(entityName);
+			int entityRegenAmount = naturalSpawnManager.getEntityRegenAmount(entityName);
+			int entityRegenIntervalSeconds = naturalSpawnManager.getEntityRegenIntervalSeconds(entityName);
+
+			player.sendMessage(Component.text(entityName + " Resource: " + entityResource + " / " + entityMax));
+			player.sendMessage(Component.text(entityName + " Regen: +" + entityRegenAmount + " every " + entityRegenIntervalSeconds + " seconds"));
+		}
+	}
+
 	private void handleSave(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
 			sender.sendMessage(Component.text("You do not have permission to use this command."));
@@ -108,6 +174,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		}
 
 		fishManager.save();
+		naturalSpawnManager.save();
 
 		sender.sendMessage(Component.text("FarmLimiter data saved."));
 	}
@@ -116,6 +183,8 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(Component.text("FarmLimiter commands:"));
 		sender.sendMessage(Component.text("/farmlimiter help - Show help"));
 		sender.sendMessage(Component.text("/farmlimiter fish - Show current chunk fish amount"));
+		sender.sendMessage(Component.text("/farmlimiter natural - Show current chunk natural spawn resource"));
+		sender.sendMessage(Component.text("/farmlimiter natural <entity> - Show current chunk entity natural spawn resource"));
 		sender.sendMessage(Component.text("/farmlimiter save - Save plugin data"));
 		sender.sendMessage(Component.text("/farmlimiter reload - Reload config and data"));
 	}
@@ -132,6 +201,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 			suggestions.add("help");
 			suggestions.add("fish");
+			suggestions.add("natural");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");
@@ -139,6 +209,24 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			}
 
 			String input = args[0].toLowerCase();
+
+			return suggestions.stream()
+					.filter(s -> s.startsWith(input))
+					.toList();
+		}
+
+		if (args.length == 2 && args[0].equalsIgnoreCase("natural")) {
+			List<String> suggestions = new ArrayList<>();
+
+			suggestions.add("ZOMBIE");
+			suggestions.add("SKELETON");
+			suggestions.add("CREEPER");
+			suggestions.add("SPIDER");
+			suggestions.add("ENDERMAN");
+			suggestions.add("WITCH");
+			suggestions.add("SLIME");
+
+			String input = args[1].toUpperCase();
 
 			return suggestions.stream()
 					.filter(s -> s.startsWith(input))

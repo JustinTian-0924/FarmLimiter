@@ -2,6 +2,8 @@ package basementhost.randomchad;
 
 import basementhost.randomchad.fish.FishListener;
 import basementhost.randomchad.fish.FishManager;
+import basementhost.randomchad.natural.NaturalSpawnListener;
+import basementhost.randomchad.natural.NaturalSpawnManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -9,6 +11,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class FarmLimiterPlugin extends JavaPlugin {
 
 	private FishManager fishManager;
+	private NaturalSpawnManager naturalSpawnManager;
+
 	private int saveTaskId = -1;
 
 	@Override
@@ -16,18 +20,28 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		// Config generation
 		saveDefaultConfig();
 
-		// Create FishManager for the "Fish" management for each chunk
+		// Create FishManager
 		this.fishManager = new FishManager(this);
 		this.fishManager.load();
 
-		// Create Fish Listener
+		// Create NaturalSpawnManager
+		this.naturalSpawnManager = new NaturalSpawnManager(this);
+		this.naturalSpawnManager.load();
+
+		// Register Fish Listener
 		Bukkit.getPluginManager().registerEvents(
 				new FishListener(this, fishManager),
 				this
 		);
 
+		// Register Natural Spawn Listener
+		Bukkit.getPluginManager().registerEvents(
+				new NaturalSpawnListener(naturalSpawnManager),
+				this
+		);
+
 		// Register command
-		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(this, fishManager);
+		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(this, fishManager, naturalSpawnManager);
 		PluginCommand command = getCommand("farmlimiter");
 
 		if (command != null) {
@@ -43,7 +57,10 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 		this.saveTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(
 				this,
-				() -> fishManager.save(),
+				() -> {
+					fishManager.save();
+					naturalSpawnManager.save();
+				},
 				saveIntervalTicks,
 				saveIntervalTicks
 		);
@@ -56,6 +73,10 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		// Save data when closing the server
 		if (fishManager != null) {
 			fishManager.save();
+		}
+
+		if (naturalSpawnManager != null) {
+			naturalSpawnManager.save();
 		}
 
 		// Cancel the auto-save task
