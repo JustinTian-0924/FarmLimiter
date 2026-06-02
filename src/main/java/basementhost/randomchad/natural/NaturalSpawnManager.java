@@ -133,6 +133,49 @@ public class NaturalSpawnManager {
 		return plugin.getConfig().getBoolean("modules.natural-spawn-rate-limit.enabled", true);
 	}
 
+	public boolean isDebugEnabled() {
+		return plugin.getConfig().getBoolean(
+				"modules.natural-spawn-rate-limit.debug.enabled",
+				false
+		);
+	}
+
+	public boolean shouldLogAllCreatureSpawns() {
+		return plugin.getConfig().getBoolean(
+				"modules.natural-spawn-rate-limit.debug.log-all-creature-spawns",
+				false
+		);
+	}
+
+	public boolean shouldLogIgnoredSpawnReasons() {
+		return plugin.getConfig().getBoolean(
+				"modules.natural-spawn-rate-limit.debug.log-ignored-spawn-reasons",
+				true
+		);
+	}
+
+	public boolean shouldLogConsume() {
+		return plugin.getConfig().getBoolean(
+				"modules.natural-spawn-rate-limit.debug.log-consume",
+				true
+		);
+	}
+
+	public boolean shouldLogCancel() {
+		return plugin.getConfig().getBoolean(
+				"modules.natural-spawn-rate-limit.debug.log-cancel",
+				true
+		);
+	}
+
+	public void debugLog(String message) {
+		if (!isDebugEnabled()) {
+			return;
+		}
+
+		plugin.getLogger().info("[NaturalSpawnDebug] " + message);
+	}
+
 	public boolean shouldLimitSpawnReason(CreatureSpawnEvent.SpawnReason spawnReason) {
 		List<String> limitedReasons = plugin.getConfig().getStringList(
 				"modules.natural-spawn-rate-limit.limited-spawn-reasons"

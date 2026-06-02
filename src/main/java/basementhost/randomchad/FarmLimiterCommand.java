@@ -59,6 +59,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				handleNatural(sender, args);
 				return true;
 
+			case "debug":
+				handleDebug(sender, args);
+				return true;
+
 			case "save":
 				handleSave(sender);
 				return true;
@@ -185,6 +189,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(Component.text("/farmlimiter fish - Show current chunk fish amount"));
 		sender.sendMessage(Component.text("/farmlimiter natural - Show current chunk natural spawn resource"));
 		sender.sendMessage(Component.text("/farmlimiter natural <entity> - Show current chunk entity natural spawn resource"));
+		sender.sendMessage(Component.text("/farmlimiter debug <on|off|status> - Toggle natural spawn debug"));
 		sender.sendMessage(Component.text("/farmlimiter save - Save plugin data"));
 		sender.sendMessage(Component.text("/farmlimiter reload - Reload config and data"));
 	}
@@ -202,6 +207,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("help");
 			suggestions.add("fish");
 			suggestions.add("natural");
+			suggestions.add("debug");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");
@@ -233,6 +239,63 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 					.toList();
 		}
 
+		if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
+			List<String> suggestions = new ArrayList<>();
+			suggestions.add("on");
+			suggestions.add("off");
+			suggestions.add("status");
+			String input = args[1].toLowerCase();
+			return suggestions.stream()
+					.filter(s -> s.startsWith(input))
+					.toList();
+		}
+
 		return new ArrayList<>();
+	}
+
+	private void handleDebug(CommandSender sender, String[] args) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			return;
+		}
+
+		if (args.length < 2 || args[1].equalsIgnoreCase("status")) {
+			boolean enabled = plugin.getConfig().getBoolean(
+					"modules.natural-spawn-rate-limit.debug.enabled",
+					false
+			);
+
+			boolean logAll = plugin.getConfig().getBoolean(
+					"modules.natural-spawn-rate-limit.debug.log-all-creature-spawns",
+					false
+			);
+
+			sender.sendMessage(Component.text("FarmLimiter natural spawn debug status:"));
+			sender.sendMessage(Component.text("Debug enabled: " + enabled));
+			sender.sendMessage(Component.text("Log all creature spawns: " + logAll));
+			sender.sendMessage(Component.text("Use /fl debug on or /fl debug off"));
+			return;
+		}
+
+		if (args[1].equalsIgnoreCase("on")) {
+			plugin.getConfig().set("modules.natural-spawn-rate-limit.debug.enabled", true);
+			plugin.getConfig().set("modules.natural-spawn-rate-limit.debug.log-all-creature-spawns", true);
+			plugin.saveConfig();
+
+			sender.sendMessage(Component.text("Natural spawn debug enabled."));
+			sender.sendMessage(Component.text("Warning: this may spam console when many mobs spawn."));
+			return;
+		}
+
+		if (args[1].equalsIgnoreCase("off")) {
+			plugin.getConfig().set("modules.natural-spawn-rate-limit.debug.enabled", false);
+			plugin.getConfig().set("modules.natural-spawn-rate-limit.debug.log-all-creature-spawns", false);
+			plugin.saveConfig();
+
+			sender.sendMessage(Component.text("Natural spawn debug disabled."));
+			return;
+		}
+
+		sender.sendMessage(Component.text("Usage: /fl debug <on|off|status>"));
 	}
 }

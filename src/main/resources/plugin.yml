@@ -1,5 +1,5 @@
 name: FarmLimiter
-version: 0.2.0
+version: 0.2.1
 main: basementhost.randomchad.FarmLimiterPlugin
 api-version: '26.1.2'
 description: Limiting and nerfing farm scale and efficiency for balancing and server resources optimization

@@ -29,8 +29,8 @@ modules:
     # Total natural spawn resource for each chunk
     total:
       max-resource: 2500
-      regen-interval-seconds: 120
-      regen-amount: 120
+      regen-interval-seconds: 30
+      regen-amount: 30
 
     # Per-entity natural spawn resource.
     # If an entity type is not listed here, it only uses the total resource.
@@ -38,12 +38,12 @@ modules:
       ZOMBIE:
         max-resource: 120
         regen-interval-seconds: 120
-        regen-amount: 6
+        regen-amount: 8
 
       SKELETON:
         max-resource: 120
         regen-interval-seconds: 120
-        regen-amount: 6
+        regen-amount: 8
 
       CREEPER:
         max-resource: 60
@@ -53,22 +53,27 @@ modules:
       SPIDER:
         max-resource: 100
         regen-interval-seconds: 120
-        regen-amount: 4
+        regen-amount: 6
 
       GHAST:
         max-resource: 40
         regen-interval-seconds: 120
         regen-amount: 2
 
+      WITHER_SKELETON:
+        max-resource: 40
+        regen-interval-seconds: 120
+        regen-amount: 2
+
       SLIME:
         max-resource: 900
-        regen-interval-seconds: 30
-        regen-amount: 16
+        regen-interval-seconds: 10
+        regen-amount: 8
 
       SILVERFISH:
         max-resource: 900
-        regen-interval-seconds: 30
-        regen-amount: 32
+        regen-interval-seconds: 10
+        regen-amount: 8
 
       PILLAGER:
         max-resource: 120
@@ -89,6 +94,26 @@ modules:
         max-resource: 20
         regen-interval-seconds: 120
         regen-amount: 1
+
+      IRON_GOLEM:
+        max-resource: 20
+        regen-interval-seconds: 120
+        regen-amount: 1
+
+      WARDEN:
+        max-resource: 12
+        regen-interval-seconds: 120
+        regen-amount: 1
+
+      HOGLIN:
+        max-resource: 90
+        regen-interval-seconds: 120
+        regen-amount: 4
+
+      ENDERMAN:
+        max-resource: 250
+        regen-interval-seconds: 30
+        regen-amount: 4
 
 data:
   # How long for auto-data save
