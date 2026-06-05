@@ -14,33 +14,28 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 	private NaturalSpawnManager naturalSpawnManager;
 
 	private int saveTaskId = -1;
+	private int cleanupTaskId = -1;
 
 	@Override
 	public void onEnable() {
-		// Config generation
 		saveDefaultConfig();
 
-		// Create FishManager
 		this.fishManager = new FishManager(this);
 		this.fishManager.load();
 
-		// Create NaturalSpawnManager
 		this.naturalSpawnManager = new NaturalSpawnManager(this);
 		this.naturalSpawnManager.load();
 
-		// Register Fish Listener
 		Bukkit.getPluginManager().registerEvents(
 				new FishListener(fishManager),
 				this
 		);
 
-		// Register Natural Spawn Listener
 		Bukkit.getPluginManager().registerEvents(
 				new NaturalSpawnListener(naturalSpawnManager),
 				this
 		);
 
-		// Register command
 		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(this, fishManager, naturalSpawnManager);
 		PluginCommand command = getCommand("farmlimiter");
 
@@ -51,8 +46,14 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			getLogger().warning("Unable to register /farmlimiter command. Please check plugin.yml.");
 		}
 
-		// Save the data periodically
-		int saveIntervalSeconds = getConfig().getInt("data.save-interval-seconds", 900);
+		startAutoSaveTask();
+		startCleanupTask();
+
+		getLogger().info("FarmLimiter Plugin Enabled!");
+	}
+
+	private void startAutoSaveTask() {
+		int saveIntervalSeconds = getConfig().getInt("data.save-interval-seconds", 1800);
 		long saveIntervalTicks = saveIntervalSeconds * 20L;
 
 		this.saveTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(
@@ -64,13 +65,33 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				saveIntervalTicks,
 				saveIntervalTicks
 		);
+	}
 
-		getLogger().info("FarmLimiter Plugin Enabled！");
+	private void startCleanupTask() {
+		int cleanupIntervalSeconds = getConfig().getInt("data.cleanup-interval-seconds", 300);
+		long cleanupIntervalTicks = cleanupIntervalSeconds * 20L;
+
+		this.cleanupTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(
+				this,
+				() -> {
+					fishManager.cleanup();
+					naturalSpawnManager.cleanup();
+				},
+				cleanupIntervalTicks,
+				cleanupIntervalTicks
+		);
 	}
 
 	@Override
 	public void onDisable() {
-		// Save data when closing the server
+		if (cleanupTaskId != -1) {
+			Bukkit.getScheduler().cancelTask(cleanupTaskId);
+		}
+
+		if (saveTaskId != -1) {
+			Bukkit.getScheduler().cancelTask(saveTaskId);
+		}
+
 		if (fishManager != null) {
 			fishManager.save();
 		}
@@ -79,11 +100,6 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			naturalSpawnManager.save();
 		}
 
-		// Cancel the auto-save task
-		if (saveTaskId != -1) {
-			Bukkit.getScheduler().cancelTask(saveTaskId);
-		}
-
-		getLogger().info("FarmLimiter Plugin Disabled！");
+		getLogger().info("FarmLimiter Plugin Disabled!");
 	}
 }

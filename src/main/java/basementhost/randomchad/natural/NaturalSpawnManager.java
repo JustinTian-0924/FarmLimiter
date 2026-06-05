@@ -10,8 +10,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class NaturalSpawnManager {
 
@@ -19,6 +22,7 @@ public class NaturalSpawnManager {
 
 	private final Map<String, SpawnPool> totalPools = new HashMap<>();
 	private final Map<String, Map<String, SpawnPool>> entityPools = new HashMap<>();
+	private final Map<String, Long> lastAccessTimes = new HashMap<>();
 
 	private File configFile;
 	private YamlConfiguration moduleConfig;
@@ -33,6 +37,7 @@ public class NaturalSpawnManager {
 	public void load() {
 		loadModuleConfig();
 		loadData();
+		cleanup();
 	}
 
 	private void loadModuleConfig() {
@@ -54,6 +59,7 @@ public class NaturalSpawnManager {
 	private void loadData() {
 		totalPools.clear();
 		entityPools.clear();
+		lastAccessTimes.clear();
 
 		File dataFolder = new File(plugin.getDataFolder(), "data");
 
@@ -86,11 +92,19 @@ public class NaturalSpawnManager {
 			return;
 		}
 
+		long now = System.currentTimeMillis();
+
 		for (String chunkKey : section.getKeys(false)) {
 			int resource = section.getInt(chunkKey + ".resource", getTotalMaxResource());
-			long lastRegenTime = section.getLong(chunkKey + ".last-regen-time", System.currentTimeMillis());
+			long lastRegenTime = section.getLong(chunkKey + ".last-regen-time", now);
+			long lastAccessTime = section.getLong(chunkKey + ".last-access-time", now);
 
-			totalPools.put(chunkKey, new SpawnPool(resource, lastRegenTime));
+			SpawnPool pool = new SpawnPool(resource, lastRegenTime);
+
+			applyTotalRegen(pool);
+
+			totalPools.put(chunkKey, pool);
+			lastAccessTimes.put(chunkKey, lastAccessTime);
 		}
 	}
 
@@ -99,6 +113,8 @@ public class NaturalSpawnManager {
 		if (section == null) {
 			return;
 		}
+
+		long now = System.currentTimeMillis();
 
 		for (String chunkKey : section.getKeys(false)) {
 			ConfigurationSection chunkSection = section.getConfigurationSection(chunkKey);
@@ -110,12 +126,18 @@ public class NaturalSpawnManager {
 
 			for (String entityTypeName : chunkSection.getKeys(false)) {
 				int resource = chunkSection.getInt(entityTypeName + ".resource", getEntityMaxResource(entityTypeName));
-				long lastRegenTime = chunkSection.getLong(entityTypeName + ".last-regen-time", System.currentTimeMillis());
+				long lastRegenTime = chunkSection.getLong(entityTypeName + ".last-regen-time", now);
 
-				perChunkEntityPools.put(entityTypeName, new SpawnPool(resource, lastRegenTime));
+				SpawnPool pool = new SpawnPool(resource, lastRegenTime);
+				applyEntityRegen(entityTypeName, pool);
+
+				perChunkEntityPools.put(entityTypeName, pool);
 			}
 
-			entityPools.put(chunkKey, perChunkEntityPools);
+			if (!perChunkEntityPools.isEmpty()) {
+				entityPools.put(chunkKey, perChunkEntityPools);
+				lastAccessTimes.putIfAbsent(chunkKey, now);
+			}
 		}
 	}
 
@@ -123,6 +145,8 @@ public class NaturalSpawnManager {
 		if (dataConfig == null || dataFile == null) {
 			return;
 		}
+
+		cleanup();
 
 		dataConfig.set("total-pools", null);
 		dataConfig.set("entity-pools", null);
@@ -133,6 +157,7 @@ public class NaturalSpawnManager {
 
 			dataConfig.set("total-pools." + chunkKey + ".resource", pool.resource);
 			dataConfig.set("total-pools." + chunkKey + ".last-regen-time", pool.lastRegenTime);
+			dataConfig.set("total-pools." + chunkKey + ".last-access-time", lastAccessTimes.getOrDefault(chunkKey, System.currentTimeMillis()));
 		}
 
 		for (Map.Entry<String, Map<String, SpawnPool>> chunkEntry : entityPools.entrySet()) {
@@ -153,6 +178,97 @@ public class NaturalSpawnManager {
 			plugin.getLogger().warning("An error occurred when saving data/natural-spawn-rate-limit.yml!");
 			e.printStackTrace();
 		}
+	}
+
+	public void cleanup() {
+		long now = System.currentTimeMillis();
+
+		int before = getTrackedChunkCount();
+
+		Set<String> allChunkKeys = new HashSet<>();
+		allChunkKeys.addAll(totalPools.keySet());
+		allChunkKeys.addAll(entityPools.keySet());
+		allChunkKeys.addAll(lastAccessTimes.keySet());
+
+		for (String chunkKey : allChunkKeys) {
+			SpawnPool totalPool = totalPools.get(chunkKey);
+
+			if (totalPool != null) {
+				applyTotalRegen(totalPool);
+			}
+
+			Map<String, SpawnPool> perEntityPools = entityPools.get(chunkKey);
+
+			if (perEntityPools != null) {
+				Iterator<Map.Entry<String, SpawnPool>> iterator = perEntityPools.entrySet().iterator();
+
+				while (iterator.hasNext()) {
+					Map.Entry<String, SpawnPool> entry = iterator.next();
+					String entityTypeName = entry.getKey();
+					SpawnPool pool = entry.getValue();
+
+					applyEntityRegen(entityTypeName, pool);
+
+					if (shouldUnloadWhenFull() && pool.resource >= getEntityMaxResource(entityTypeName)) {
+						iterator.remove();
+					}
+				}
+
+				if (perEntityPools.isEmpty()) {
+					entityPools.remove(chunkKey);
+				}
+			}
+
+			if (shouldRemoveChunk(chunkKey, now)) {
+				totalPools.remove(chunkKey);
+				entityPools.remove(chunkKey);
+				lastAccessTimes.remove(chunkKey);
+			}
+		}
+
+		int removed = before - getTrackedChunkCount();
+
+		if (removed > 0) {
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit cleanup removed " + removed + " chunk records. Remaining: " + getTrackedChunkCount());
+		}
+	}
+
+	private boolean shouldRemoveChunk(String chunkKey, long now) {
+		Long lastAccess = lastAccessTimes.get(chunkKey);
+
+		if (lastAccess == null) {
+			return true;
+		}
+
+		long ttlMillis = getInactiveTtlSeconds() * 1000L;
+
+		if (ttlMillis > 0 && now - lastAccess >= ttlMillis) {
+			return true;
+		}
+
+		if (!shouldUnloadWhenFull()) {
+			return false;
+		}
+
+		SpawnPool totalPool = totalPools.get(chunkKey);
+		Map<String, SpawnPool> perEntityPools = entityPools.get(chunkKey);
+
+		boolean totalFullOrMissing = totalPool == null || totalPool.resource >= getTotalMaxResource();
+		boolean noEntityPools = perEntityPools == null || perEntityPools.isEmpty();
+
+		return totalFullOrMissing && noEntityPools;
+	}
+
+	private int getTrackedChunkCount() {
+		Set<String> allChunkKeys = new HashSet<>();
+		allChunkKeys.addAll(totalPools.keySet());
+		allChunkKeys.addAll(entityPools.keySet());
+		allChunkKeys.addAll(lastAccessTimes.keySet());
+		return allChunkKeys.size();
+	}
+
+	private void touch(String chunkKey) {
+		lastAccessTimes.put(chunkKey, System.currentTimeMillis());
 	}
 
 	public boolean isEnabled() {
@@ -229,6 +345,8 @@ public class NaturalSpawnManager {
 		String chunkKey = getChunkKey(chunk);
 		String entityTypeName = entityType.name();
 
+		touch(chunkKey);
+
 		SpawnPool totalPool = totalPools.computeIfAbsent(chunkKey, key -> createTotalPool());
 		applyTotalRegen(totalPool);
 
@@ -260,6 +378,8 @@ public class NaturalSpawnManager {
 	public int getRemainingTotalResource(Chunk chunk) {
 		String chunkKey = getChunkKey(chunk);
 
+		touch(chunkKey);
+
 		SpawnPool totalPool = totalPools.computeIfAbsent(chunkKey, key -> createTotalPool());
 		applyTotalRegen(totalPool);
 
@@ -274,6 +394,8 @@ public class NaturalSpawnManager {
 		}
 
 		String chunkKey = getChunkKey(chunk);
+
+		touch(chunkKey);
 
 		Map<String, SpawnPool> perChunkEntityPools = entityPools.computeIfAbsent(chunkKey, key -> new HashMap<>());
 
@@ -380,6 +502,14 @@ public class NaturalSpawnManager {
 				"per-entity." + entityTypeName + ".regen-amount",
 				getTotalRegenAmount()
 		);
+	}
+
+	private boolean shouldUnloadWhenFull() {
+		return moduleConfig.getBoolean("cleanup.unload-when-full", true);
+	}
+
+	private int getInactiveTtlSeconds() {
+		return moduleConfig.getInt("cleanup.inactive-ttl-seconds", 1800);
 	}
 
 	private String getChunkKey(Chunk chunk) {

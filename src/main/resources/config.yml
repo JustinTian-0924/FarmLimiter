@@ -1,3 +1,5 @@
 data:
   # How long for auto-data save
   save-interval-seconds: 1800
+  # How often to clean useless cached data
+  cleanup-interval-seconds: 300

@@ -8,6 +8,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public class FishManager {
@@ -29,6 +30,7 @@ public class FishManager {
 	public void load() {
 		loadModuleConfig();
 		loadData();
+		cleanup();
 	}
 
 	private void loadModuleConfig() {
@@ -74,11 +76,21 @@ public class FishManager {
 			return;
 		}
 
+		long now = System.currentTimeMillis();
+
 		for (String key : section.getKeys(false)) {
 			int fish = section.getInt(key + ".fish", getMaxFish());
-			long lastRegenTime = section.getLong(key + ".last-regen-time", System.currentTimeMillis());
+			long lastRegenTime = section.getLong(key + ".last-regen-time", now);
+			long lastAccessTime = section.getLong(key + ".last-access-time", now);
 
-			fishPools.put(key, new FishPool(fish, lastRegenTime));
+			FishPool pool = new FishPool(fish, lastRegenTime, lastAccessTime);
+			applyRegen(pool);
+
+			if (shouldRemovePool(pool, now)) {
+				continue;
+			}
+
+			fishPools.put(key, pool);
 		}
 
 		plugin.getLogger().info("Loaded " + fishPools.size() + " chunks of fishing data.");
@@ -89,6 +101,8 @@ public class FishManager {
 			return;
 		}
 
+		cleanup();
+
 		dataConfig.set("fish-pools", null);
 
 		for (Map.Entry<String, FishPool> entry : fishPools.entrySet()) {
@@ -97,6 +111,7 @@ public class FishManager {
 
 			dataConfig.set("fish-pools." + key + ".fish", pool.fish);
 			dataConfig.set("fish-pools." + key + ".last-regen-time", pool.lastRegenTime);
+			dataConfig.set("fish-pools." + key + ".last-access-time", pool.lastAccessTime);
 		}
 
 		try {
@@ -105,6 +120,45 @@ public class FishManager {
 			plugin.getLogger().warning("An error occurred when saving data/fish-depletion.yml!");
 			e.printStackTrace();
 		}
+	}
+
+	public void cleanup() {
+		long now = System.currentTimeMillis();
+
+		int before = fishPools.size();
+
+		Iterator<Map.Entry<String, FishPool>> iterator = fishPools.entrySet().iterator();
+
+		while (iterator.hasNext()) {
+			Map.Entry<String, FishPool> entry = iterator.next();
+			FishPool pool = entry.getValue();
+
+			applyRegen(pool);
+
+			if (shouldRemovePool(pool, now)) {
+				iterator.remove();
+			}
+		}
+
+		int removed = before - fishPools.size();
+
+		if (removed > 0) {
+			plugin.getLogger().info("Fish_Depletion cleanup removed " + removed + " chunk records. Remaining: " + fishPools.size());
+		}
+	}
+
+	private boolean shouldRemovePool(FishPool pool, long now) {
+		if (shouldUnloadWhenFull() && pool.fish >= getMaxFish()) {
+			return true;
+		}
+
+		long ttlMillis = getInactiveTtlSeconds() * 1000L;
+
+		if (ttlMillis > 0 && now - pool.lastAccessTime >= ttlMillis) {
+			return true;
+		}
+
+		return false;
 	}
 
 	public boolean isEnabled() {
@@ -119,6 +173,8 @@ public class FishManager {
 		String key = getChunkKey(chunk);
 		FishPool pool = fishPools.computeIfAbsent(key, k -> createNewPool());
 
+		pool.lastAccessTime = System.currentTimeMillis();
+
 		applyRegen(pool);
 
 		return pool.fish;
@@ -127,6 +183,8 @@ public class FishManager {
 	public boolean tryConsumeFish(Chunk chunk) {
 		String key = getChunkKey(chunk);
 		FishPool pool = fishPools.computeIfAbsent(key, k -> createNewPool());
+
+		pool.lastAccessTime = System.currentTimeMillis();
 
 		applyRegen(pool);
 
@@ -139,13 +197,20 @@ public class FishManager {
 	}
 
 	private FishPool createNewPool() {
-		return new FishPool(getMaxFish(), System.currentTimeMillis());
+		long now = System.currentTimeMillis();
+		return new FishPool(getMaxFish(), now, now);
 	}
 
 	private void applyRegen(FishPool pool) {
 		int maxFish = getMaxFish();
 		int regenAmount = getRegenAmount();
-		long intervalMillis = getRegenIntervalSeconds() * 1000L;
+		int regenIntervalSeconds = getRegenIntervalSeconds();
+
+		if (regenIntervalSeconds <= 0) {
+			return;
+		}
+
+		long intervalMillis = regenIntervalSeconds * 1000L;
 
 		long now = System.currentTimeMillis();
 
@@ -193,13 +258,23 @@ public class FishManager {
 		return moduleConfig.getInt("regen-interval-seconds", 600);
 	}
 
+	private boolean shouldUnloadWhenFull() {
+		return moduleConfig.getBoolean("cleanup.unload-when-full", true);
+	}
+
+	private int getInactiveTtlSeconds() {
+		return moduleConfig.getInt("cleanup.inactive-ttl-seconds", 1800);
+	}
+
 	private static class FishPool {
 		private int fish;
 		private long lastRegenTime;
+		private long lastAccessTime;
 
-		private FishPool(int fish, long lastRegenTime) {
+		private FishPool(int fish, long lastRegenTime, long lastAccessTime) {
 			this.fish = fish;
 			this.lastRegenTime = lastRegenTime;
+			this.lastAccessTime = lastAccessTime;
 		}
 	}
 }

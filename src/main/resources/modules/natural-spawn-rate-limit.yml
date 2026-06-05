@@ -1,5 +1,9 @@
 enabled: true
-
+cleanup:
+  # If total resource and all recorded entity resources are full, remove the chunk data
+  unload-when-full: true
+  # If a chunk has no plugin activity for this many seconds, remove its data
+  inactive-ttl-seconds: 1800
 debug:
   enabled: false
   log-all-creature-spawns: false

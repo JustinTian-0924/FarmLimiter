@@ -11,3 +11,10 @@ regen-amount: 8
 
 # Will it notify the player when the chunk is out of fish
 notify-player: true
+
+cleanup:
+  # If a chunk fish pool is full, remove it from memory and data file
+  unload-when-full: true
+  # If a chunk has no plugin activity for this many seconds, remove its data
+  # 1800 = 30 minutes
+  inactive-ttl-seconds: 1800
