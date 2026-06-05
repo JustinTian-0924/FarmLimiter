@@ -1,5 +1,6 @@
 package basementhost.randomchad.natural;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -180,7 +181,102 @@ public class NaturalSpawnManager {
 		}
 	}
 
+	public void saveAsync() {
+		if (dataFile == null) {
+			return;
+		}
+
+		// Main process clear and duplicate the snapshot
+		cleanup();
+
+		Map<String, SpawnPoolSnapshot> totalSnapshot = new HashMap<>();
+		Map<String, Map<String, SpawnPoolSnapshot>> entitySnapshot = new HashMap<>();
+		Map<String, Long> accessSnapshot = new HashMap<>(lastAccessTimes);
+
+		for (Map.Entry<String, SpawnPool> entry : totalPools.entrySet()) {
+			String chunkKey = entry.getKey();
+			SpawnPool pool = entry.getValue();
+
+			totalSnapshot.put(
+					chunkKey,
+					new SpawnPoolSnapshot(
+							pool.resource,
+							pool.lastRegenTime
+					)
+			);
+		}
+
+		for (Map.Entry<String, Map<String, SpawnPool>> chunkEntry : entityPools.entrySet()) {
+			String chunkKey = chunkEntry.getKey();
+
+			Map<String, SpawnPoolSnapshot> perEntitySnapshot = new HashMap<>();
+
+			for (Map.Entry<String, SpawnPool> entityEntry : chunkEntry.getValue().entrySet()) {
+				String entityTypeName = entityEntry.getKey();
+				SpawnPool pool = entityEntry.getValue();
+
+				perEntitySnapshot.put(
+						entityTypeName,
+						new SpawnPoolSnapshot(
+								pool.resource,
+								pool.lastRegenTime
+						)
+				);
+			}
+
+			if (!perEntitySnapshot.isEmpty()) {
+				entitySnapshot.put(chunkKey, perEntitySnapshot);
+			}
+		}
+
+		File targetFile = dataFile;
+
+		// Asyc process only write normal data to the file, won't bypass any paper & bukkit limitation
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+			YamlConfiguration asyncConfig = new YamlConfiguration();
+
+			for (Map.Entry<String, SpawnPoolSnapshot> entry : totalSnapshot.entrySet()) {
+				String chunkKey = entry.getKey();
+				SpawnPoolSnapshot pool = entry.getValue();
+
+				asyncConfig.set("total-pools." + chunkKey + ".resource", pool.resource);
+				asyncConfig.set("total-pools." + chunkKey + ".last-regen-time", pool.lastRegenTime);
+				asyncConfig.set(
+						"total-pools." + chunkKey + ".last-access-time",
+						accessSnapshot.getOrDefault(chunkKey, System.currentTimeMillis())
+				);
+			}
+
+			for (Map.Entry<String, Map<String, SpawnPoolSnapshot>> chunkEntry : entitySnapshot.entrySet()) {
+				String chunkKey = chunkEntry.getKey();
+
+				for (Map.Entry<String, SpawnPoolSnapshot> entityEntry : chunkEntry.getValue().entrySet()) {
+					String entityTypeName = entityEntry.getKey();
+					SpawnPoolSnapshot pool = entityEntry.getValue();
+
+					asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".resource", pool.resource);
+					asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".last-regen-time", pool.lastRegenTime);
+				}
+			}
+
+			try {
+				asyncConfig.save(targetFile);
+			} catch (IOException e) {
+				plugin.getLogger().warning("An error occurred when asynchronously saving data/natural-spawn-rate-limit.yml!");
+				e.printStackTrace();
+			}
+		});
+	}
+
 	public void cleanup() {
+		int removed = cleanupAndGetRemovedCount();
+
+		if (removed > 0) {
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit cleanup removed " + removed + " chunk records. Remaining: " + getTrackedChunkCount());
+		}
+	}
+
+	public int cleanupAndGetRemovedCount() {
 		long now = System.currentTimeMillis();
 
 		int before = getTrackedChunkCount();
@@ -226,11 +322,7 @@ public class NaturalSpawnManager {
 			}
 		}
 
-		int removed = before - getTrackedChunkCount();
-
-		if (removed > 0) {
-			plugin.getLogger().info("Natural_Spawn_Rate_Limit cleanup removed " + removed + " chunk records. Remaining: " + getTrackedChunkCount());
-		}
+		return before - getTrackedChunkCount();
 	}
 
 	private boolean shouldRemoveChunk(String chunkKey, long now) {
@@ -259,7 +351,7 @@ public class NaturalSpawnManager {
 		return totalFullOrMissing && noEntityPools;
 	}
 
-	private int getTrackedChunkCount() {
+	public int getTrackedChunkCount() {
 		Set<String> allChunkKeys = new HashSet<>();
 		allChunkKeys.addAll(totalPools.keySet());
 		allChunkKeys.addAll(entityPools.keySet());
@@ -525,6 +617,15 @@ public class NaturalSpawnManager {
 		private long lastRegenTime;
 
 		private SpawnPool(int resource, long lastRegenTime) {
+			this.resource = resource;
+			this.lastRegenTime = lastRegenTime;
+		}
+	}
+
+	private static class SpawnPoolSnapshot {
+		private final int resource;
+		private final long lastRegenTime;
+		private SpawnPoolSnapshot(int resource, long lastRegenTime) {
 			this.resource = resource;
 			this.lastRegenTime = lastRegenTime;
 		}

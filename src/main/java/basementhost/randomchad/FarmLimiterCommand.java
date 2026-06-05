@@ -63,6 +63,14 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				handleDebug(sender, args);
 				return true;
 
+			case "stats":
+				handleStats(sender);
+				return true;
+
+			case "cleanup":
+				handleCleanup(sender);
+				return true;
+
 			case "save":
 				handleSave(sender);
 				return true;
@@ -206,16 +214,54 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(Component.text("Usage: /fl debug <on|off|status>"));
 	}
 
+	private void handleStats(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			return;
+		}
+
+		int fishTrackedChunks = fishManager.getTrackedChunkCount();
+		int naturalTrackedChunks = naturalSpawnManager.getTrackedChunkCount();
+
+		sender.sendMessage(Component.text("FarmLimiter stats:"));
+		sender.sendMessage(Component.text("Fish_Depletion tracked chunks: " + fishTrackedChunks));
+		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit tracked chunks: " + naturalTrackedChunks));
+	}
+
+	private void handleCleanup(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			return;
+		}
+
+		int fishBefore = fishManager.getTrackedChunkCount();
+		int naturalBefore = naturalSpawnManager.getTrackedChunkCount();
+
+		int fishRemoved = fishManager.cleanupAndGetRemovedCount();
+		int naturalRemoved = naturalSpawnManager.cleanupAndGetRemovedCount();
+
+		int fishAfter = fishManager.getTrackedChunkCount();
+		int naturalAfter = naturalSpawnManager.getTrackedChunkCount();
+
+		fishManager.saveAsync();
+		naturalSpawnManager.saveAsync();
+
+		sender.sendMessage(Component.text("FarmLimiter cleanup completed:"));
+		sender.sendMessage(Component.text("Fish_Depletion: " + fishBefore + " -> " + fishAfter + " removed " + fishRemoved));
+		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit: " + naturalBefore + " -> " + naturalAfter + " removed " + naturalRemoved));
+		sender.sendMessage(Component.text("Data save has been started asynchronously."));
+	}
+
 	private void handleSave(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
 			sender.sendMessage(Component.text("You do not have permission to use this command."));
 			return;
 		}
 
-		fishManager.save();
-		naturalSpawnManager.save();
+		fishManager.saveAsync();
+		naturalSpawnManager.saveAsync();
 
-		sender.sendMessage(Component.text("FarmLimiter data saved."));
+		sender.sendMessage(Component.text("FarmLimiter async data save started."));
 	}
 
 	private void sendHelp(CommandSender sender) {
@@ -225,7 +271,9 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(Component.text("/farmlimiter natural - Show current chunk natural spawn resource"));
 		sender.sendMessage(Component.text("/farmlimiter natural <entity> - Show current chunk entity natural spawn resource"));
 		sender.sendMessage(Component.text("/farmlimiter debug <on|off|status> - Toggle natural spawn debug"));
-		sender.sendMessage(Component.text("/farmlimiter save - Save plugin data"));
+		sender.sendMessage(Component.text("/farmlimiter stats - Show tracked chunk stats"));
+		sender.sendMessage(Component.text("/farmlimiter cleanup - Manually cleanup unused data"));
+		sender.sendMessage(Component.text("/farmlimiter save - Save plugin data asynchronously"));
 		sender.sendMessage(Component.text("/farmlimiter reload - Reload config and data"));
 	}
 
@@ -243,6 +291,8 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("fish");
 			suggestions.add("natural");
 			suggestions.add("debug");
+			suggestions.add("stats");
+			suggestions.add("cleanup");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");

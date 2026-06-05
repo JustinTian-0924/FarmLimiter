@@ -1,5 +1,6 @@
 package basementhost.randomchad.fish;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -122,7 +123,63 @@ public class FishManager {
 		}
 	}
 
+	public void saveAsync() {
+		if (dataFile == null) {
+			return;
+		}
+
+		// Clean up in main processor, and copy a snapshot
+		cleanup();
+
+		Map<String, FishPoolSnapshot> snapshot = new HashMap<>();
+
+		for (Map.Entry<String, FishPool> entry : fishPools.entrySet()) {
+			String key = entry.getKey();
+			FishPool pool = entry.getValue();
+
+			snapshot.put(
+					key,
+					new FishPoolSnapshot(
+							pool.fish,
+							pool.lastRegenTime,
+							pool.lastAccessTime
+					)
+			);
+		}
+
+		File targetFile = dataFile;
+
+		// the backend process only in charge of writing the file and won't touching any active Bukkit related objects
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+			YamlConfiguration asyncConfig = new YamlConfiguration();
+
+			for (Map.Entry<String, FishPoolSnapshot> entry : snapshot.entrySet()) {
+				String key = entry.getKey();
+				FishPoolSnapshot pool = entry.getValue();
+
+				asyncConfig.set("fish-pools." + key + ".fish", pool.fish);
+				asyncConfig.set("fish-pools." + key + ".last-regen-time", pool.lastRegenTime);
+				asyncConfig.set("fish-pools." + key + ".last-access-time", pool.lastAccessTime);
+			}
+
+			try {
+				asyncConfig.save(targetFile);
+			} catch (IOException e) {
+				plugin.getLogger().warning("An error occurred when asynchronously saving data/fish-depletion.yml!");
+				e.printStackTrace();
+			}
+		});
+	}
+
 	public void cleanup() {
+		int removed = cleanupAndGetRemovedCount();
+
+		if (removed > 0) {
+			plugin.getLogger().info("Fish_Depletion cleanup removed " + removed + " chunk records. Remaining: " + fishPools.size());
+		}
+	}
+
+	public int cleanupAndGetRemovedCount() {
 		long now = System.currentTimeMillis();
 
 		int before = fishPools.size();
@@ -140,11 +197,11 @@ public class FishManager {
 			}
 		}
 
-		int removed = before - fishPools.size();
+		return before - fishPools.size();
+	}
 
-		if (removed > 0) {
-			plugin.getLogger().info("Fish_Depletion cleanup removed " + removed + " chunk records. Remaining: " + fishPools.size());
-		}
+	public int getTrackedChunkCount() {
+		return fishPools.size();
 	}
 
 	private boolean shouldRemovePool(FishPool pool, long now) {
@@ -277,4 +334,16 @@ public class FishManager {
 			this.lastAccessTime = lastAccessTime;
 		}
 	}
+
+	private static class FishPoolSnapshot {
+		private final int fish;
+		private final long lastRegenTime;
+		private final long lastAccessTime;
+		private FishPoolSnapshot(int fish, long lastRegenTime, long lastAccessTime) {
+			this.fish = fish;
+			this.lastRegenTime = lastRegenTime;
+			this.lastAccessTime = lastAccessTime;
+		}
+	}
+
 }

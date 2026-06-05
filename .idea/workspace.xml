@@ -7,11 +7,10 @@
     <list default="true" id="030c91b8-a5c7-4d5a-82c9-3bed1c9af51f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/FarmLimiterCommand.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/FarmLimiterCommand.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/FarmLimiterPlugin.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/FarmLimiterPlugin.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/fish/FishManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/fish/FishManager.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/natural/NaturalSpawnManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/basementhost/randomchad/natural/NaturalSpawnManager.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/config.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/modules/fish-depletion.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/modules/fish-depletion.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/modules/natural-spawn-rate-limit.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/modules/natural-spawn-rate-limit.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/resources/plugin.yml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/plugin.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

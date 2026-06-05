@@ -59,8 +59,8 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		this.saveTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(
 				this,
 				() -> {
-					fishManager.save();
-					naturalSpawnManager.save();
+					fishManager.saveAsync();
+					naturalSpawnManager.saveAsync();
 				},
 				saveIntervalTicks,
 				saveIntervalTicks
@@ -92,6 +92,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			Bukkit.getScheduler().cancelTask(saveTaskId);
 		}
 
+		// Prevent asyc when closing up the server
 		if (fishManager != null) {
 			fishManager.save();
 		}
