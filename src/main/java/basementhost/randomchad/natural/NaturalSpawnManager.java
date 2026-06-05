@@ -20,6 +20,9 @@ public class NaturalSpawnManager {
 	private final Map<String, SpawnPool> totalPools = new HashMap<>();
 	private final Map<String, Map<String, SpawnPool>> entityPools = new HashMap<>();
 
+	private File configFile;
+	private YamlConfiguration moduleConfig;
+
 	private File dataFile;
 	private YamlConfiguration dataConfig;
 
@@ -28,20 +31,43 @@ public class NaturalSpawnManager {
 	}
 
 	public void load() {
+		loadModuleConfig();
+		loadData();
+	}
+
+	private void loadModuleConfig() {
+		File modulesFolder = new File(plugin.getDataFolder(), "modules");
+
+		if (!modulesFolder.exists()) {
+			modulesFolder.mkdirs();
+		}
+
+		configFile = new File(modulesFolder, "natural-spawn-rate-limit.yml");
+
+		if (!configFile.exists()) {
+			plugin.saveResource("modules/natural-spawn-rate-limit.yml", false);
+		}
+
+		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+	}
+
+	private void loadData() {
 		totalPools.clear();
 		entityPools.clear();
 
-		dataFile = new File(plugin.getDataFolder(), "natural_spawn_data.yml");
+		File dataFolder = new File(plugin.getDataFolder(), "data");
 
-		if (!plugin.getDataFolder().exists()) {
-			plugin.getDataFolder().mkdirs();
+		if (!dataFolder.exists()) {
+			dataFolder.mkdirs();
 		}
+
+		dataFile = new File(dataFolder, "natural-spawn-rate-limit.yml");
 
 		if (!dataFile.exists()) {
 			try {
 				dataFile.createNewFile();
 			} catch (IOException e) {
-				plugin.getLogger().warning("Unable to create natural_spawn_data.yml!");
+				plugin.getLogger().warning("Unable to create data/natural-spawn-rate-limit.yml!");
 				e.printStackTrace();
 			}
 		}
@@ -124,48 +150,53 @@ public class NaturalSpawnManager {
 		try {
 			dataConfig.save(dataFile);
 		} catch (IOException e) {
-			plugin.getLogger().warning("An error occurred when saving natural_spawn_data.yml!");
+			plugin.getLogger().warning("An error occurred when saving data/natural-spawn-rate-limit.yml!");
 			e.printStackTrace();
 		}
 	}
 
 	public boolean isEnabled() {
-		return plugin.getConfig().getBoolean("modules.natural-spawn-rate-limit.enabled", true);
+		return moduleConfig.getBoolean("enabled", true);
 	}
 
 	public boolean isDebugEnabled() {
-		return plugin.getConfig().getBoolean(
-				"modules.natural-spawn-rate-limit.debug.enabled",
-				false
-		);
+		return moduleConfig.getBoolean("debug.enabled", false);
 	}
 
 	public boolean shouldLogAllCreatureSpawns() {
-		return plugin.getConfig().getBoolean(
-				"modules.natural-spawn-rate-limit.debug.log-all-creature-spawns",
-				false
-		);
+		return moduleConfig.getBoolean("debug.log-all-creature-spawns", false);
 	}
 
 	public boolean shouldLogIgnoredSpawnReasons() {
-		return plugin.getConfig().getBoolean(
-				"modules.natural-spawn-rate-limit.debug.log-ignored-spawn-reasons",
-				true
-		);
+		return moduleConfig.getBoolean("debug.log-ignored-spawn-reasons", true);
 	}
 
 	public boolean shouldLogConsume() {
-		return plugin.getConfig().getBoolean(
-				"modules.natural-spawn-rate-limit.debug.log-consume",
-				true
-		);
+		return moduleConfig.getBoolean("debug.log-consume", true);
 	}
 
 	public boolean shouldLogCancel() {
-		return plugin.getConfig().getBoolean(
-				"modules.natural-spawn-rate-limit.debug.log-cancel",
-				true
-		);
+		return moduleConfig.getBoolean("debug.log-cancel", true);
+	}
+
+	public void setDebug(boolean enabled, boolean logAllCreatureSpawns) {
+		moduleConfig.set("debug.enabled", enabled);
+		moduleConfig.set("debug.log-all-creature-spawns", logAllCreatureSpawns);
+
+		saveModuleConfig();
+	}
+
+	private void saveModuleConfig() {
+		if (moduleConfig == null || configFile == null) {
+			return;
+		}
+
+		try {
+			moduleConfig.save(configFile);
+		} catch (IOException e) {
+			plugin.getLogger().warning("An error occurred when saving modules/natural-spawn-rate-limit.yml!");
+			e.printStackTrace();
+		}
 	}
 
 	public void debugLog(String message) {
@@ -177,12 +208,8 @@ public class NaturalSpawnManager {
 	}
 
 	public boolean shouldLimitSpawnReason(CreatureSpawnEvent.SpawnReason spawnReason) {
-		List<String> limitedReasons = plugin.getConfig().getStringList(
-				"modules.natural-spawn-rate-limit.limited-spawn-reasons"
-		);
+		List<String> limitedReasons = moduleConfig.getStringList("limited-spawn-reasons");
 
-		// If there is no configuration in limited-spawn-reasons，
-		// then it will only limiting NATURAL
 		if (limitedReasons.isEmpty()) {
 			return spawnReason == CreatureSpawnEvent.SpawnReason.NATURAL;
 		}
@@ -287,6 +314,10 @@ public class NaturalSpawnManager {
 	}
 
 	private void applyRegen(SpawnPool pool, int maxResource, int regenAmount, int regenIntervalSeconds) {
+		if (regenIntervalSeconds <= 0) {
+			return;
+		}
+
 		long intervalMillis = regenIntervalSeconds * 1000L;
 		long now = System.currentTimeMillis();
 
@@ -315,49 +346,38 @@ public class NaturalSpawnManager {
 	}
 
 	private boolean hasEntityLimit(String entityTypeName) {
-		return plugin.getConfig().isConfigurationSection(
-				"modules.natural-spawn-rate-limit.per-entity." + entityTypeName
-		);
+		return moduleConfig.isConfigurationSection("per-entity." + entityTypeName);
 	}
 
 	public int getTotalMaxResource() {
-		return plugin.getConfig().getInt(
-				"modules.natural-spawn-rate-limit.total.max-resource",
-				500
-		);
+		return moduleConfig.getInt("total.max-resource", 500);
 	}
 
 	public int getTotalRegenIntervalSeconds() {
-		return plugin.getConfig().getInt(
-				"modules.natural-spawn-rate-limit.total.regen-interval-seconds",
-				600
-		);
+		return moduleConfig.getInt("total.regen-interval-seconds", 600);
 	}
 
 	public int getTotalRegenAmount() {
-		return plugin.getConfig().getInt(
-				"modules.natural-spawn-rate-limit.total.regen-amount",
-				25
-		);
+		return moduleConfig.getInt("total.regen-amount", 25);
 	}
 
 	public int getEntityMaxResource(String entityTypeName) {
-		return plugin.getConfig().getInt(
-				"modules.natural-spawn-rate-limit.per-entity." + entityTypeName + ".max-resource",
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".max-resource",
 				getTotalMaxResource()
 		);
 	}
 
 	public int getEntityRegenIntervalSeconds(String entityTypeName) {
-		return plugin.getConfig().getInt(
-				"modules.natural-spawn-rate-limit.per-entity." + entityTypeName + ".regen-interval-seconds",
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".regen-interval-seconds",
 				getTotalRegenIntervalSeconds()
 		);
 	}
 
 	public int getEntityRegenAmount(String entityTypeName) {
-		return plugin.getConfig().getInt(
-				"modules.natural-spawn-rate-limit.per-entity." + entityTypeName + ".regen-amount",
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".regen-amount",
 				getTotalRegenAmount()
 		);
 	}

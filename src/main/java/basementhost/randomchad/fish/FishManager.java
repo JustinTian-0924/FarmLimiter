@@ -16,6 +16,9 @@ public class FishManager {
 
 	private final Map<String, FishPool> fishPools = new HashMap<>();
 
+	private File configFile;
+	private YamlConfiguration moduleConfig;
+
 	private File dataFile;
 	private YamlConfiguration dataConfig;
 
@@ -24,17 +27,42 @@ public class FishManager {
 	}
 
 	public void load() {
-		fishPools.clear();
-		dataFile = new File(plugin.getDataFolder(), "data.yml");
-		if (!plugin.getDataFolder().exists()) {
-			plugin.getDataFolder().mkdirs();
+		loadModuleConfig();
+		loadData();
+	}
+
+	private void loadModuleConfig() {
+		File modulesFolder = new File(plugin.getDataFolder(), "modules");
+
+		if (!modulesFolder.exists()) {
+			modulesFolder.mkdirs();
 		}
+
+		configFile = new File(modulesFolder, "fish-depletion.yml");
+
+		if (!configFile.exists()) {
+			plugin.saveResource("modules/fish-depletion.yml", false);
+		}
+
+		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+	}
+
+	private void loadData() {
+		fishPools.clear();
+
+		File dataFolder = new File(plugin.getDataFolder(), "data");
+
+		if (!dataFolder.exists()) {
+			dataFolder.mkdirs();
+		}
+
+		dataFile = new File(dataFolder, "fish-depletion.yml");
 
 		if (!dataFile.exists()) {
 			try {
 				dataFile.createNewFile();
 			} catch (IOException e) {
-				plugin.getLogger().warning("Unable to create data.yml！");
+				plugin.getLogger().warning("Unable to create data/fish-depletion.yml!");
 				e.printStackTrace();
 			}
 		}
@@ -53,7 +81,7 @@ public class FishManager {
 			fishPools.put(key, new FishPool(fish, lastRegenTime));
 		}
 
-		plugin.getLogger().info("Loaded " + fishPools.size() + " chunks of fishing data");
+		plugin.getLogger().info("Loaded " + fishPools.size() + " chunks of fishing data.");
 	}
 
 	public void save() {
@@ -74,17 +102,17 @@ public class FishManager {
 		try {
 			dataConfig.save(dataFile);
 		} catch (IOException e) {
-			plugin.getLogger().warning("An error occurs when saving data.yml！");
+			plugin.getLogger().warning("An error occurred when saving data/fish-depletion.yml!");
 			e.printStackTrace();
 		}
 	}
 
 	public boolean isEnabled() {
-		return plugin.getConfig().getBoolean("modules.fish-depletion.enabled", true);
+		return moduleConfig.getBoolean("enabled", true);
 	}
 
 	public boolean shouldNotifyPlayer() {
-		return plugin.getConfig().getBoolean("modules.fish-depletion.notify-player", true);
+		return moduleConfig.getBoolean("notify-player", true);
 	}
 
 	public int getRemainingFish(Chunk chunk) {
@@ -154,13 +182,15 @@ public class FishManager {
 	}
 
 	public int getMaxFish() {
-		return plugin.getConfig().getInt("modules.fish-depletion.max-fish", 64);
+		return moduleConfig.getInt("max-fish", 64);
 	}
+
 	public int getRegenAmount() {
-		return plugin.getConfig().getInt("modules.fish-depletion.regen-amount", 8);
+		return moduleConfig.getInt("regen-amount", 8);
 	}
+
 	public int getRegenIntervalSeconds() {
-		return plugin.getConfig().getInt("modules.fish-depletion.regen-interval-seconds", 600);
+		return moduleConfig.getInt("regen-interval-seconds", 600);
 	}
 
 	private static class FishPool {

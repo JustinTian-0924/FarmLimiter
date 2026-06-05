@@ -1,6 +1,5 @@
 package basementhost.randomchad.fish;
 
-import basementhost.randomchad.FarmLimiterPlugin;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
 import org.bukkit.entity.Entity;
@@ -14,7 +13,7 @@ public class FishListener implements Listener {
 
 	private final FishManager fishManager;
 
-	public FishListener(FarmLimiterPlugin farmLimiterPlugin, FishManager fishManager) {
+	public FishListener(FishManager fishManager) {
 		this.fishManager = fishManager;
 	}
 

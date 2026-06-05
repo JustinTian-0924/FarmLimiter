@@ -30,7 +30,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 		// Register Fish Listener
 		Bukkit.getPluginManager().registerEvents(
-				new FishListener(this, fishManager),
+				new FishListener(fishManager),
 				this
 		);
 

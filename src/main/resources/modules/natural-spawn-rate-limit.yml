@@ -1,0 +1,142 @@
+enabled: true
+
+debug:
+  enabled: false
+  log-all-creature-spawns: false
+  log-ignored-spawn-reasons: true
+  log-consume: true
+  log-cancel: true
+
+# Which spawn reasons will be limited by this module.
+# NATURAL = normal natural mob spawning
+# POTION_EFFECT = mobs spawned by potion effects, such as oozing / infestation
+# RAID = mobs spawned as part of a raid
+limited-spawn-reasons:
+  - NATURAL
+  - POTION_EFFECT
+  - RAID
+  - VILLAGE_DEFENSE # Villager Iron Farm
+
+# Total natural spawn resource for each chunk
+total:
+  max-resource: 2500
+  regen-interval-seconds: 30
+  regen-amount: 40
+
+# Per-entity natural spawn resource.
+# If an entity type is not listed here, it only uses the total resource.
+per-entity:
+  ZOMBIE:
+    max-resource: 120
+    regen-interval-seconds: 120
+    regen-amount: 8
+
+  SKELETON:
+    max-resource: 120
+    regen-interval-seconds: 120
+    regen-amount: 8
+
+  CREEPER:
+    max-resource: 60
+    regen-interval-seconds: 120
+    regen-amount: 4
+
+  SPIDER:
+    max-resource: 100
+    regen-interval-seconds: 120
+    regen-amount: 6
+
+  GHAST:
+    max-resource: 18
+    regen-interval-seconds: 180
+    regen-amount: 1
+
+  WITHER_SKELETON:
+    max-resource: 40
+    regen-interval-seconds: 120
+    regen-amount: 2
+
+  SLIME:
+    max-resource: 300
+    regen-interval-seconds: 30
+    regen-amount: 8
+
+  SILVERFISH:
+    max-resource: 1500
+    regen-interval-seconds: 10
+    regen-amount: 8
+
+  PILLAGER:
+    max-resource: 120
+    regen-interval-seconds: 120
+    regen-amount: 6
+
+  VINDICATOR:
+    max-resource: 80
+    regen-interval-seconds: 120
+    regen-amount: 4
+
+  EVOKER:
+    max-resource: 40
+    regen-interval-seconds: 120
+    regen-amount: 2
+
+  RAVAGER:
+    max-resource: 20
+    regen-interval-seconds: 120
+    regen-amount: 1
+
+  IRON_GOLEM:
+    max-resource: 20
+    regen-interval-seconds: 120
+    regen-amount: 1
+
+  WARDEN:
+    max-resource: 12
+    regen-interval-seconds: 120
+    regen-amount: 1
+
+  HOGLIN:
+    max-resource: 90
+    regen-interval-seconds: 120
+    regen-amount: 4
+
+  ZOMBIFIED_PIGLIN:
+    max-resource: 180
+    regen-interval-seconds: 60
+    regen-amount: 6
+
+  ENDERMAN:
+    max-resource: 250
+    regen-interval-seconds: 30
+    regen-amount: 4
+
+  GUARDIAN:
+    max-resource: 180
+    regen-interval-seconds: 30
+    regen-amount: 3
+
+  COD:
+    max-resource: 48
+    regen-interval-seconds: 90
+    regen-amount: 4
+
+  SALMON:
+    max-resource: 32
+    regen-interval-seconds: 90
+    regen-amount: 4
+
+  PUFFERFISH:
+    max-resource: 24
+    regen-interval-seconds: 90
+    regen-amount: 2
+
+  TROPICAL_FISH:
+    max-resource: 18
+    regen-interval-seconds: 120
+    regen-amount: 2
+
+  ALLAY:
+    max-resource: 12
+    regen-interval-seconds: 120
+    regen-amount: 2
