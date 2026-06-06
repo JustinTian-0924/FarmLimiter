@@ -1,7 +1,9 @@
 package basementhost.randomchad.fish;
 
+import basementhost.randomchad.storage.AsyncSaveGuard;
 import basementhost.randomchad.storage.RegionKeyUtil;
 import basementhost.randomchad.storage.RegionLoadState;
+import basementhost.randomchad.storage.RegionUnloadHelper;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
@@ -32,8 +34,7 @@ public class FishManager {
 
 	private final Object dataSaveLock = new Object();
 
-	private final AtomicBoolean asyncSaveRunning = new AtomicBoolean(false);
-	private final AtomicBoolean asyncSaveQueued = new AtomicBoolean(false);
+	private final AsyncSaveGuard asyncSaveGuard = new AsyncSaveGuard();
 
 	public FishManager(JavaPlugin plugin) {
 		this.plugin = plugin;
@@ -45,6 +46,7 @@ public class FishManager {
 
 		fishPools.clear();
 		regionState.clear();
+		asyncSaveGuard.clear();
 
 		plugin.getLogger().info("Fish depletion regional data storage initialized.");
 	}
@@ -169,8 +171,7 @@ public class FishManager {
 			return;
 		}
 
-		if (!asyncSaveRunning.compareAndSet(false, true)) {
-			asyncSaveQueued.set(true);
+		if (!asyncSaveGuard.tryStart()) {
 			return;
 		}
 
@@ -185,9 +186,8 @@ public class FishManager {
 				plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
 			}
 
-			asyncSaveRunning.set(false);
-
-			if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+			asyncSaveGuard.finish();
+			if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
 				Bukkit.getScheduler().runTask(plugin, this::saveAsync);
 			}
 
@@ -218,9 +218,8 @@ public class FishManager {
 						plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
 					}
 
-					asyncSaveRunning.set(false);
-
-					if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+					asyncSaveGuard.finish();
+					if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
 						saveAsync();
 					}
 				});
@@ -352,113 +351,26 @@ public class FishManager {
 	}
 
 	public int enforceLoadedRegionLimit() {
-		int unloaded = 0;
-
-		unloaded += unloadSavedEmptyRegions();
-		unloaded += unloadCleanInactiveOrExcessRegions();
-
-		int maxLoadedRegions = getMaxLoadedRegions();
-
-		if (maxLoadedRegions > 0 && regionState.getLoadedRegionCount() > maxLoadedRegions) {
-			plugin.getLogger().warning(
-					"Fish_Depletion loaded regions are still above limit: " +
-							regionState.getLoadedRegionCount() + " / " + maxLoadedRegions +
-							". Most remaining regions may be dirty and cannot be safely unloaded yet."
-			);
-		}
-
-		return unloaded;
+		return RegionUnloadHelper.enforceLoadedRegionLimit(
+				plugin,
+				"Fish_Depletion",
+				regionState,
+				shouldUnloadEmptyRegionsAfterSave(),
+				getMaxLoadedRegions(),
+				shouldUnloadInactiveLoadedRegions(),
+				getLoadedRegionInactiveTtlSeconds(),
+				getMaxRegionUnloadsPerCleanup(),
+				this::regionHasTrackedChunks,
+				this::unloadRegionFromMemory
+		);
 	}
 
 	public int unloadSavedEmptyRegions() {
-		if (!shouldUnloadEmptyRegionsAfterSave()) {
-			return 0;
-		}
-
-		int before = regionState.getLoadedRegionCount();
-
-		for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
-			if (regionState.isDirty(regionId)) {
-				continue;
-			}
-
-			if (regionHasTrackedChunks(regionId)) {
-				continue;
-			}
-
-			regionState.removeLoadedRegion(regionId);
-		}
-
-		return before - regionState.getLoadedRegionCount();
-	}
-
-	private int unloadCleanInactiveOrExcessRegions() {
-		int maxUnloads = getMaxRegionUnloadsPerCleanup();
-
-		if (maxUnloads <= 0) {
-			return 0;
-		}
-
-		int unloaded = 0;
-		long now = System.currentTimeMillis();
-
-		if (shouldUnloadInactiveLoadedRegions()) {
-			long ttlMillis = getLoadedRegionInactiveTtlSeconds() * 1000L;
-
-			if (ttlMillis > 0) {
-				for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
-					if (unloaded >= maxUnloads) {
-						return unloaded;
-					}
-
-					if (regionState.isDirty(regionId)) {
-						continue;
-					}
-
-					long lastAccessTime = regionState.getLastAccessTime(regionId, now);
-
-					if (now - lastAccessTime >= ttlMillis) {
-						unloadRegionFromMemory(regionId);
-						unloaded++;
-					}
-				}
-			}
-		}
-
-		int maxLoadedRegions = getMaxLoadedRegions();
-
-		while (maxLoadedRegions > 0 && regionState.getLoadedRegionCount() > maxLoadedRegions && unloaded < maxUnloads) {
-			String oldestCleanRegionId = findOldestCleanLoadedRegionId();
-
-			if (oldestCleanRegionId == null) {
-				break;
-			}
-
-			unloadRegionFromMemory(oldestCleanRegionId);
-			unloaded++;
-		}
-
-		return unloaded;
-	}
-
-	private String findOldestCleanLoadedRegionId() {
-		String oldestRegionId = null;
-		long oldestAccessTime = Long.MAX_VALUE;
-
-		for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
-			if (regionState.isDirty(regionId)) {
-				continue;
-			}
-
-			long lastAccessTime = regionState.getLastAccessTime(regionId, 0L);
-
-			if (lastAccessTime < oldestAccessTime) {
-				oldestAccessTime = lastAccessTime;
-				oldestRegionId = regionId;
-			}
-		}
-
-		return oldestRegionId;
+		return RegionUnloadHelper.unloadSavedEmptyRegions(
+				regionState,
+				shouldUnloadEmptyRegionsAfterSave(),
+				this::regionHasTrackedChunks
+		);
 	}
 
 	private void unloadRegionFromMemory(String regionId) {
@@ -612,11 +524,11 @@ public class FishManager {
 	}
 
 	public boolean isAsyncSaveRunning() {
-		return asyncSaveRunning.get();
+		return asyncSaveGuard.isRunning();
 	}
 
 	public boolean isAsyncSaveQueued() {
-		return asyncSaveQueued.get();
+		return asyncSaveGuard.isQueued();
 	}
 
 	public int getMaxFish() {

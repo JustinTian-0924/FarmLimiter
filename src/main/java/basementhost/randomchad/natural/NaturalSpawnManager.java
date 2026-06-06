@@ -1,7 +1,9 @@
 package basementhost.randomchad.natural;
 
+import basementhost.randomchad.storage.AsyncSaveGuard;
 import basementhost.randomchad.storage.RegionKeyUtil;
 import basementhost.randomchad.storage.RegionLoadState;
+import basementhost.randomchad.storage.RegionUnloadHelper;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
@@ -37,8 +39,7 @@ public class NaturalSpawnManager {
 
 	private final Object dataSaveLock = new Object();
 
-	private final AtomicBoolean asyncSaveRunning = new AtomicBoolean(false);
-	private final AtomicBoolean asyncSaveQueued = new AtomicBoolean(false);
+	private final AsyncSaveGuard asyncSaveGuard = new AsyncSaveGuard();
 
 	public NaturalSpawnManager(JavaPlugin plugin) {
 		this.plugin = plugin;
@@ -52,6 +53,7 @@ public class NaturalSpawnManager {
 		entityPools.clear();
 		lastAccessTimes.clear();
 		regionState.clear();
+		asyncSaveGuard.clear();
 
 		plugin.getLogger().info("Natural spawn regional data storage initialized.");
 	}
@@ -195,8 +197,7 @@ public class NaturalSpawnManager {
 			return;
 		}
 
-		if (!asyncSaveRunning.compareAndSet(false, true)) {
-			asyncSaveQueued.set(true);
+		if (!asyncSaveGuard.tryStart()) {
 			return;
 		}
 
@@ -211,9 +212,8 @@ public class NaturalSpawnManager {
 				plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
 			}
 
-			asyncSaveRunning.set(false);
-
-			if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+			asyncSaveGuard.finish();
+			if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
 				Bukkit.getScheduler().runTask(plugin, this::saveAsync);
 			}
 
@@ -244,9 +244,8 @@ public class NaturalSpawnManager {
 						plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
 					}
 
-					asyncSaveRunning.set(false);
-
-					if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+					asyncSaveGuard.finish();
+					if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
 						saveAsync();
 					}
 				});
@@ -485,93 +484,26 @@ public class NaturalSpawnManager {
 	}
 
 	public int unloadSavedEmptyRegions() {
-		if (!shouldUnloadEmptyRegionsAfterSave()) {
-			return 0;
-		}
-
-		int before = regionState.getLoadedRegionCount();
-
-		for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
-			if (regionState.isDirty(regionId)) {
-				continue;
-			}
-
-			if (regionHasTrackedChunks(regionId)) {
-				continue;
-			}
-
-			regionState.removeLoadedRegion(regionId);
-		}
-
-		return before - regionState.getLoadedRegionCount();
+		return RegionUnloadHelper.unloadSavedEmptyRegions(
+				regionState,
+				shouldUnloadEmptyRegionsAfterSave(),
+				this::regionHasTrackedChunks
+		);
 	}
 
 	public int enforceLoadedRegionLimit() {
-		int unloaded = 0;
-
-		unloaded += unloadSavedEmptyRegions();
-		unloaded += unloadCleanInactiveOrExcessRegions();
-
-		int maxLoadedRegions = getMaxLoadedRegions();
-
-		if (maxLoadedRegions > 0 && regionState.getLoadedRegionCount() > maxLoadedRegions) {
-			plugin.getLogger().warning(
-					"Natural_Spawn_Rate_Limit loaded regions are still above limit: " +
-							regionState.getLoadedRegionCount() + " / " + maxLoadedRegions +
-							". Most remaining regions may be dirty and cannot be safely unloaded yet."
-			);
-		}
-
-		return unloaded;
-	}
-
-	private int unloadCleanInactiveOrExcessRegions() {
-		int maxUnloads = getMaxRegionUnloadsPerCleanup();
-
-		if (maxUnloads <= 0) {
-			return 0;
-		}
-
-		int unloaded = 0;
-		long now = System.currentTimeMillis();
-
-		if (shouldUnloadInactiveLoadedRegions()) {
-			long ttlMillis = getLoadedRegionInactiveTtlSeconds() * 1000L;
-
-			if (ttlMillis > 0) {
-				for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
-					if (unloaded >= maxUnloads) {
-						return unloaded;
-					}
-
-					if (regionState.isDirty(regionId)) {
-						continue;
-					}
-
-					long lastAccessTime = regionState.getLastAccessTime(regionId, now);
-
-					if (now - lastAccessTime >= ttlMillis) {
-						unloadRegionFromMemory(regionId);
-						unloaded++;
-					}
-				}
-			}
-		}
-
-		int maxLoadedRegions = getMaxLoadedRegions();
-
-		while (maxLoadedRegions > 0 && regionState.getLoadedRegionCount() > maxLoadedRegions && unloaded < maxUnloads) {
-			String oldestCleanRegionId = findOldestCleanLoadedRegionId();
-
-			if (oldestCleanRegionId == null) {
-				break;
-			}
-
-			unloadRegionFromMemory(oldestCleanRegionId);
-			unloaded++;
-		}
-
-		return unloaded;
+		return RegionUnloadHelper.enforceLoadedRegionLimit(
+				plugin,
+				"Natural_Spawn_Rate_Limit",
+				regionState,
+				shouldUnloadEmptyRegionsAfterSave(),
+				getMaxLoadedRegions(),
+				shouldUnloadInactiveLoadedRegions(),
+				getLoadedRegionInactiveTtlSeconds(),
+				getMaxRegionUnloadsPerCleanup(),
+				this::regionHasTrackedChunks,
+				this::unloadRegionFromMemory
+		);
 	}
 
 	private String findOldestCleanLoadedRegionId() {
@@ -637,11 +569,11 @@ public class NaturalSpawnManager {
 	}
 
 	public boolean isAsyncSaveRunning() {
-		return asyncSaveRunning.get();
+		return asyncSaveGuard.isRunning();
 	}
 
 	public boolean isAsyncSaveQueued() {
-		return asyncSaveQueued.get();
+		return asyncSaveGuard.isQueued();
 	}
 
 	private void touch(String chunkKey) {
