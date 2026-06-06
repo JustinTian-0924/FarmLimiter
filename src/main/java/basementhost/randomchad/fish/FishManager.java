@@ -1,5 +1,7 @@
 package basementhost.randomchad.fish;
 
+import basementhost.randomchad.storage.RegionKeyUtil;
+import basementhost.randomchad.storage.RegionLoadState;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
@@ -21,11 +23,7 @@ public class FishManager {
 
 	private final Map<String, FishPool> fishPools = new HashMap<>();
 
-	private final Set<String> loadedRegionIds = new HashSet<>();
-	private final Map<String, Long> dirtyRegionVersions = new HashMap<>();
-	private final Map<String, Long> regionLastAccessTimes = new HashMap<>();
-
-	private long dirtyVersionCounter = 0L;
+	private final RegionLoadState regionState = new RegionLoadState();
 
 	private File configFile;
 	private YamlConfiguration moduleConfig;
@@ -46,10 +44,7 @@ public class FishManager {
 		loadDataRoot();
 
 		fishPools.clear();
-		loadedRegionIds.clear();
-		dirtyRegionVersions.clear();
-		regionLastAccessTimes.clear();
-		dirtyVersionCounter = 0L;
+		regionState.clear();
 
 		plugin.getLogger().info("Fish depletion regional data storage initialized.");
 	}
@@ -87,8 +82,8 @@ public class FishManager {
 	private void ensureRegionLoaded(Chunk chunk) {
 		String regionId = getRegionId(chunk);
 
-		if (loadedRegionIds.contains(regionId)) {
-			touchRegion(regionId);
+		if (regionState.isLoaded(regionId)) {
+			regionState.touch(regionId);
 			return;
 		}
 
@@ -102,8 +97,7 @@ public class FishManager {
 		ConfigurationSection chunksSection = regionConfig.getConfigurationSection("chunks");
 
 		if (chunksSection == null) {
-			loadedRegionIds.add(regionId);
-			touchRegion(regionId);
+			regionState.markLoaded(regionId);
 			enforceLoadedRegionLimit();
 			return;
 		}
@@ -129,15 +123,14 @@ public class FishManager {
 			fishPools.put(chunkKey, pool);
 		}
 
-		loadedRegionIds.add(regionId);
-		touchRegion(regionId);
+		regionState.markLoaded(regionId);
 		enforceLoadedRegionLimit();
 	}
 
 	public void save() {
 		cleanup();
 
-		Map<String, Long> regionsToSave = new HashMap<>(dirtyRegionVersions);
+		Map<String, Long> regionsToSave = regionState.snapshotDirtyVersions();
 
 		if (regionsToSave.isEmpty()) {
 			int unloadedRegions = enforceLoadedRegionLimit();
@@ -161,11 +154,7 @@ public class FishManager {
 			String regionId = entry.getKey();
 			long savedVersion = entry.getValue();
 
-			Long currentVersion = dirtyRegionVersions.get(regionId);
-
-			if (currentVersion != null && currentVersion == savedVersion) {
-				dirtyRegionVersions.remove(regionId);
-			}
+			regionState.clearDirtyIfVersionMatches(regionId, savedVersion);
 		}
 
 		int unloadedRegions = enforceLoadedRegionLimit();
@@ -187,7 +176,7 @@ public class FishManager {
 
 		cleanup();
 
-		Map<String, Long> regionsToSave = new HashMap<>(dirtyRegionVersions);
+		Map<String, Long> regionsToSave = regionState.snapshotDirtyVersions();
 
 		if (regionsToSave.isEmpty()) {
 			int unloadedRegions = enforceLoadedRegionLimit();
@@ -220,11 +209,7 @@ public class FishManager {
 						String regionId = entry.getKey();
 						long savedVersion = entry.getValue();
 
-						Long currentVersion = dirtyRegionVersions.get(regionId);
-
-						if (currentVersion != null && currentVersion == savedVersion) {
-							dirtyRegionVersions.remove(regionId);
-						}
+						regionState.clearDirtyIfVersionMatches(regionId, savedVersion);
 					}
 
 					int unloadedRegions = enforceLoadedRegionLimit();
@@ -363,11 +348,7 @@ public class FishManager {
 
 		long ttlMillis = getInactiveTtlSeconds() * 1000L;
 
-		if (ttlMillis > 0 && now - pool.lastAccessTime >= ttlMillis) {
-			return true;
-		}
-
-		return false;
+		return ttlMillis > 0 && now - pool.lastAccessTime >= ttlMillis;
 	}
 
 	public int enforceLoadedRegionLimit() {
@@ -378,10 +359,10 @@ public class FishManager {
 
 		int maxLoadedRegions = getMaxLoadedRegions();
 
-		if (maxLoadedRegions > 0 && loadedRegionIds.size() > maxLoadedRegions) {
+		if (maxLoadedRegions > 0 && regionState.getLoadedRegionCount() > maxLoadedRegions) {
 			plugin.getLogger().warning(
 					"Fish_Depletion loaded regions are still above limit: " +
-							loadedRegionIds.size() + " / " + maxLoadedRegions +
+							regionState.getLoadedRegionCount() + " / " + maxLoadedRegions +
 							". Most remaining regions may be dirty and cannot be safely unloaded yet."
 			);
 		}
@@ -394,14 +375,10 @@ public class FishManager {
 			return 0;
 		}
 
-		int before = loadedRegionIds.size();
+		int before = regionState.getLoadedRegionCount();
 
-		Iterator<String> iterator = loadedRegionIds.iterator();
-
-		while (iterator.hasNext()) {
-			String regionId = iterator.next();
-
-			if (dirtyRegionVersions.containsKey(regionId)) {
+		for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
+			if (regionState.isDirty(regionId)) {
 				continue;
 			}
 
@@ -409,11 +386,10 @@ public class FishManager {
 				continue;
 			}
 
-			iterator.remove();
-			regionLastAccessTimes.remove(regionId);
+			regionState.removeLoadedRegion(regionId);
 		}
 
-		return before - loadedRegionIds.size();
+		return before - regionState.getLoadedRegionCount();
 	}
 
 	private int unloadCleanInactiveOrExcessRegions() {
@@ -430,18 +406,16 @@ public class FishManager {
 			long ttlMillis = getLoadedRegionInactiveTtlSeconds() * 1000L;
 
 			if (ttlMillis > 0) {
-				Set<String> regionIds = new HashSet<>(loadedRegionIds);
-
-				for (String regionId : regionIds) {
+				for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
 					if (unloaded >= maxUnloads) {
 						return unloaded;
 					}
 
-					if (dirtyRegionVersions.containsKey(regionId)) {
+					if (regionState.isDirty(regionId)) {
 						continue;
 					}
 
-					long lastAccessTime = regionLastAccessTimes.getOrDefault(regionId, now);
+					long lastAccessTime = regionState.getLastAccessTime(regionId, now);
 
 					if (now - lastAccessTime >= ttlMillis) {
 						unloadRegionFromMemory(regionId);
@@ -453,7 +427,7 @@ public class FishManager {
 
 		int maxLoadedRegions = getMaxLoadedRegions();
 
-		while (maxLoadedRegions > 0 && loadedRegionIds.size() > maxLoadedRegions && unloaded < maxUnloads) {
+		while (maxLoadedRegions > 0 && regionState.getLoadedRegionCount() > maxLoadedRegions && unloaded < maxUnloads) {
 			String oldestCleanRegionId = findOldestCleanLoadedRegionId();
 
 			if (oldestCleanRegionId == null) {
@@ -471,12 +445,12 @@ public class FishManager {
 		String oldestRegionId = null;
 		long oldestAccessTime = Long.MAX_VALUE;
 
-		for (String regionId : loadedRegionIds) {
-			if (dirtyRegionVersions.containsKey(regionId)) {
+		for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
+			if (regionState.isDirty(regionId)) {
 				continue;
 			}
 
-			long lastAccessTime = regionLastAccessTimes.getOrDefault(regionId, 0L);
+			long lastAccessTime = regionState.getLastAccessTime(regionId, 0L);
 
 			if (lastAccessTime < oldestAccessTime) {
 				oldestAccessTime = lastAccessTime;
@@ -491,15 +465,12 @@ public class FishManager {
 		Set<String> chunkKeys = new HashSet<>(fishPools.keySet());
 
 		for (String chunkKey : chunkKeys) {
-			if (!regionId.equals(getRegionIdFromChunkKey(chunkKey))) {
-				continue;
+			if (regionId.equals(getRegionIdFromChunkKey(chunkKey))) {
+				fishPools.remove(chunkKey);
 			}
-
-			fishPools.remove(chunkKey);
 		}
 
-		loadedRegionIds.remove(regionId);
-		regionLastAccessTimes.remove(regionId);
+		regionState.removeLoadedRegion(regionId);
 	}
 
 	private boolean regionHasTrackedChunks(String regionId) {
@@ -524,12 +495,14 @@ public class FishManager {
 		ensureRegionLoaded(chunk);
 
 		String key = getChunkKey(chunk);
+		String regionId = getRegionId(chunk);
+
 		FishPool pool = fishPools.computeIfAbsent(key, k -> createNewPool());
 
 		pool.lastAccessTime = System.currentTimeMillis();
 
-		touchRegion(getRegionId(chunk));
-		markRegionDirty(getRegionId(chunk));
+		touchRegion(regionId);
+		markRegionDirty(regionId);
 
 		applyRegen(pool);
 
@@ -592,7 +565,6 @@ public class FishManager {
 		}
 
 		long intervalMillis = regenIntervalSeconds * 1000L;
-
 		long now = System.currentTimeMillis();
 
 		if (pool.fish >= maxFish) {
@@ -620,15 +592,11 @@ public class FishManager {
 	}
 
 	private void touchRegion(String regionId) {
-		regionLastAccessTimes.put(regionId, System.currentTimeMillis());
+		regionState.touch(regionId);
 	}
 
 	private void markRegionDirty(String regionId) {
-		loadedRegionIds.add(regionId);
-		touchRegion(regionId);
-
-		dirtyVersionCounter++;
-		dirtyRegionVersions.put(regionId, dirtyVersionCounter);
+		regionState.markDirty(regionId);
 	}
 
 	public int getTrackedChunkCount() {
@@ -636,11 +604,11 @@ public class FishManager {
 	}
 
 	public int getLoadedRegionCount() {
-		return loadedRegionIds.size();
+		return regionState.getLoadedRegionCount();
 	}
 
 	public int getDirtyRegionCount() {
-		return dirtyRegionVersions.size();
+		return regionState.getDirtyRegionCount();
 	}
 
 	public boolean isAsyncSaveRunning() {
@@ -696,63 +664,19 @@ public class FishManager {
 	}
 
 	private String getChunkKey(Chunk chunk) {
-		String worldId = chunk.getWorld().getUID().toString();
-		int x = chunk.getX();
-		int z = chunk.getZ();
-
-		return worldId + "_" + x + "_" + z;
+		return RegionKeyUtil.getChunkKey(chunk);
 	}
 
 	private String getRegionId(Chunk chunk) {
-		String worldId = chunk.getWorld().getUID().toString();
-		int regionSize = getRegionSizeChunks();
-
-		int regionX = Math.floorDiv(chunk.getX(), regionSize);
-		int regionZ = Math.floorDiv(chunk.getZ(), regionSize);
-
-		return worldId + "_" + regionX + "_" + regionZ;
+		return RegionKeyUtil.getRegionId(chunk, getRegionSizeChunks());
 	}
 
 	private String getRegionIdFromChunkKey(String chunkKey) {
-		String[] parts = chunkKey.split("_");
-
-		if (parts.length != 3) {
-			return "unknown_0_0";
-		}
-
-		String worldId = parts[0];
-		int chunkX;
-		int chunkZ;
-
-		try {
-			chunkX = Integer.parseInt(parts[1]);
-			chunkZ = Integer.parseInt(parts[2]);
-		} catch (NumberFormatException exception) {
-			return worldId + "_0_0";
-		}
-
-		int regionSize = getRegionSizeChunks();
-
-		int regionX = Math.floorDiv(chunkX, regionSize);
-		int regionZ = Math.floorDiv(chunkZ, regionSize);
-
-		return worldId + "_" + regionX + "_" + regionZ;
+		return RegionKeyUtil.getRegionIdFromChunkKey(chunkKey, getRegionSizeChunks());
 	}
 
 	private File getRegionFile(String regionId) {
-		String[] parts = regionId.split("_");
-
-		if (parts.length != 3) {
-			return new File(dataRootFolder, "unknown/r.0.0.yml");
-		}
-
-		String worldId = parts[0];
-		String regionX = parts[1];
-		String regionZ = parts[2];
-
-		File worldFolder = new File(dataRootFolder, worldId);
-
-		return new File(worldFolder, "r." + regionX + "." + regionZ + ".yml");
+		return RegionKeyUtil.getRegionFile(dataRootFolder, regionId);
 	}
 
 	private static class FishPool {
