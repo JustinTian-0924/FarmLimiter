@@ -12,9 +12,32 @@ regen-amount: 8
 # Will it notify the player when the chunk is out of fish
 notify-player: true
 
+storage:
+  # How many chunks wide/tall per region data file.
+  # 32 means one file stores 32x32 chunks.
+  region-size-chunks: 32
+
+  # If a loaded region has no tracked chunks and is already saved,
+  # remove it from memory.
+  unload-empty-regions-after-save: true
+
+  # Maximum loaded fish region files kept in memory.
+  # Set to 0 or negative to disable this limit.
+  max-loaded-regions: 128
+
+  # Allow unloading loaded regions that are already saved and inactive.
+  unload-inactive-loaded-regions: true
+
+  # A clean loaded region can be unloaded after no access for this many seconds.
+  loaded-region-inactive-ttl-seconds: 900
+
+  # To avoid one cleanup causing a big spike,
+  # unload at most this many loaded regions per cleanup/save cycle.
+  max-region-unloads-per-cleanup: 8
+
 cleanup:
   # If a chunk fish pool is full, remove it from memory and data file
   unload-when-full: true
+
   # If a chunk has no plugin activity for this many seconds, remove its data
-  # 1800 = 30 minutes
   inactive-ttl-seconds: 1800

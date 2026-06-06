@@ -219,19 +219,17 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			sender.sendMessage(Component.text("You do not have permission to use this command."));
 			return;
 		}
-
 		int fishTrackedChunks = fishManager.getTrackedChunkCount();
 		int naturalTrackedChunks = naturalSpawnManager.getTrackedChunkCount();
-
 		sender.sendMessage(Component.text("FarmLimiter stats:"));
 		sender.sendMessage(Component.text("Fish_Depletion tracked chunks: " + fishTrackedChunks));
+		sender.sendMessage(Component.text("Fish_Depletion loaded regions: " + fishManager.getLoadedRegionCount() + " / " + fishManager.getMaxLoadedRegions()));
+		sender.sendMessage(Component.text("Fish_Depletion dirty regions: " + fishManager.getDirtyRegionCount()));
+		sender.sendMessage(Component.text("Fish_Depletion async save running: " + fishManager.isAsyncSaveRunning()));
+		sender.sendMessage(Component.text("Fish_Depletion async save queued: " + fishManager.isAsyncSaveQueued()));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit tracked chunks: " + naturalTrackedChunks));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit loaded regions: " + naturalSpawnManager.getLoadedRegionCount() + " / " + naturalSpawnManager.getMaxLoadedRegions()));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit dirty regions: " + naturalSpawnManager.getDirtyRegionCount()));
-
-		sender.sendMessage(Component.text("Fish_Depletion async save running: " + fishManager.isAsyncSaveRunning()));
-		sender.sendMessage(Component.text("Fish_Depletion async save queued: " + fishManager.isAsyncSaveQueued()));
-
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit async save running: " + naturalSpawnManager.isAsyncSaveRunning()));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit async save queued: " + naturalSpawnManager.isAsyncSaveQueued()));
 	}
