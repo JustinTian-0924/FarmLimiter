@@ -28,6 +28,7 @@ public class NaturalSpawnManager {
 
 	private final Set<String> loadedRegionIds = new HashSet<>();
 	private final Map<String, Long> dirtyRegionVersions = new HashMap<>();
+	private final Map<String, Long> regionLastAccessTimes = new HashMap<>();
 
 	private long dirtyVersionCounter = 0L;
 
@@ -54,6 +55,7 @@ public class NaturalSpawnManager {
 		lastAccessTimes.clear();
 		loadedRegionIds.clear();
 		dirtyRegionVersions.clear();
+		regionLastAccessTimes.clear();
 		dirtyVersionCounter = 0L;
 
 		plugin.getLogger().info("Natural spawn regional data storage initialized.");
@@ -91,8 +93,8 @@ public class NaturalSpawnManager {
 
 	private void ensureRegionLoaded(Chunk chunk) {
 		String regionId = getRegionId(chunk);
-
 		if (loadedRegionIds.contains(regionId)) {
+			touchRegion(regionId);
 			return;
 		}
 
@@ -107,6 +109,8 @@ public class NaturalSpawnManager {
 
 		if (chunksSection == null) {
 			loadedRegionIds.add(regionId);
+			touchRegion(regionId);
+			enforceLoadedRegionLimit();
 			return;
 		}
 
@@ -151,6 +155,8 @@ public class NaturalSpawnManager {
 		}
 
 		loadedRegionIds.add(regionId);
+		touchRegion(regionId);
+		enforceLoadedRegionLimit();
 	}
 
 	public void save() {
@@ -181,10 +187,10 @@ public class NaturalSpawnManager {
 			}
 		}
 
-		int unloadedRegions = unloadSavedEmptyRegions();
+		int unloadedRegions = enforceLoadedRegionLimit();
 
 		if (unloadedRegions > 0) {
-			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
 		}
 	}
 
@@ -202,14 +208,18 @@ public class NaturalSpawnManager {
 
 		Map<String, Long> regionsToSave = new HashMap<>(dirtyRegionVersions);
 		if (regionsToSave.isEmpty()) {
-			int unloadedRegions = unloadSavedEmptyRegions();
+			int unloadedRegions = enforceLoadedRegionLimit();
+
 			if (unloadedRegions > 0) {
-				plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
+				plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
 			}
+
 			asyncSaveRunning.set(false);
+
 			if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
 				Bukkit.getScheduler().runTask(plugin, this::saveAsync);
 			}
+
 			return;
 		}
 
@@ -235,10 +245,10 @@ public class NaturalSpawnManager {
 						}
 					}
 
-					int unloadedRegions = unloadSavedEmptyRegions();
+					int unloadedRegions = enforceLoadedRegionLimit();
 
 					if (unloadedRegions > 0) {
-						plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
+						plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
 					}
 
 					asyncSaveRunning.set(false);
@@ -362,9 +372,9 @@ public class NaturalSpawnManager {
 		if (removed > 0) {
 			plugin.getLogger().info("Natural_Spawn_Rate_Limit cleanup removed " + removed + " chunk records. Remaining loaded tracked chunks: " + getTrackedChunkCount());
 		}
-		int unloadedRegions = unloadSavedEmptyRegions();
+		int unloadedRegions = enforceLoadedRegionLimit();
 		if (unloadedRegions > 0) {
-			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
 		}
 	}
 
@@ -499,9 +509,121 @@ public class NaturalSpawnManager {
 			}
 
 			iterator.remove();
+			regionLastAccessTimes.remove(regionId);
 		}
 
 		return before - loadedRegionIds.size();
+	}
+
+	public int enforceLoadedRegionLimit() {
+		int unloaded = 0;
+
+		unloaded += unloadSavedEmptyRegions();
+		unloaded += unloadCleanInactiveOrExcessRegions();
+
+		int maxLoadedRegions = getMaxLoadedRegions();
+
+		if (maxLoadedRegions > 0 && loadedRegionIds.size() > maxLoadedRegions) {
+			plugin.getLogger().warning(
+					"Natural_Spawn_Rate_Limit loaded regions are still above limit: " +
+							loadedRegionIds.size() + " / " + maxLoadedRegions +
+							". Most remaining regions may be dirty and cannot be safely unloaded yet."
+			);
+		}
+
+		return unloaded;
+	}
+
+	private int unloadCleanInactiveOrExcessRegions() {
+		int maxUnloads = getMaxRegionUnloadsPerCleanup();
+
+		if (maxUnloads <= 0) {
+			return 0;
+		}
+
+		int unloaded = 0;
+		long now = System.currentTimeMillis();
+
+		if (shouldUnloadInactiveLoadedRegions()) {
+			long ttlMillis = getLoadedRegionInactiveTtlSeconds() * 1000L;
+
+			if (ttlMillis > 0) {
+				Set<String> regionIds = new HashSet<>(loadedRegionIds);
+
+				for (String regionId : regionIds) {
+					if (unloaded >= maxUnloads) {
+						return unloaded;
+					}
+
+					if (dirtyRegionVersions.containsKey(regionId)) {
+						continue;
+					}
+
+					long lastAccessTime = regionLastAccessTimes.getOrDefault(regionId, now);
+
+					if (now - lastAccessTime >= ttlMillis) {
+						unloadRegionFromMemory(regionId);
+						unloaded++;
+					}
+				}
+			}
+		}
+
+		int maxLoadedRegions = getMaxLoadedRegions();
+
+		while (maxLoadedRegions > 0 && loadedRegionIds.size() > maxLoadedRegions && unloaded < maxUnloads) {
+			String oldestCleanRegionId = findOldestCleanLoadedRegionId();
+
+			if (oldestCleanRegionId == null) {
+				break;
+			}
+
+			unloadRegionFromMemory(oldestCleanRegionId);
+			unloaded++;
+		}
+
+		return unloaded;
+	}
+
+	private String findOldestCleanLoadedRegionId() {
+		String oldestRegionId = null;
+		long oldestAccessTime = Long.MAX_VALUE;
+
+		for (String regionId : loadedRegionIds) {
+			if (dirtyRegionVersions.containsKey(regionId)) {
+				continue;
+			}
+
+			long lastAccessTime = regionLastAccessTimes.getOrDefault(regionId, 0L);
+
+			if (lastAccessTime < oldestAccessTime) {
+				oldestAccessTime = lastAccessTime;
+				oldestRegionId = regionId;
+			}
+		}
+
+		return oldestRegionId;
+	}
+
+	private void unloadRegionFromMemory(String regionId) {
+		Set<String> chunkKeys = new HashSet<>();
+
+		chunkKeys.addAll(totalPools.keySet());
+		chunkKeys.addAll(entityPools.keySet());
+		chunkKeys.addAll(lastAccessTimes.keySet());
+
+		for (String chunkKey : chunkKeys) {
+			if (!regionId.equals(getRegionIdFromChunkKey(chunkKey))) {
+				continue;
+			}
+
+			totalPools.remove(chunkKey);
+			entityPools.remove(chunkKey);
+			lastAccessTimes.remove(chunkKey);
+		}
+
+		loadedRegionIds.remove(regionId);
+		regionLastAccessTimes.remove(regionId);
 	}
 
 	private boolean regionHasTrackedChunks(String regionId) {
@@ -539,8 +661,13 @@ public class NaturalSpawnManager {
 		markRegionDirty(getRegionIdFromChunkKey(chunkKey));
 	}
 
+	private void touchRegion(String regionId) {
+		regionLastAccessTimes.put(regionId, System.currentTimeMillis());
+	}
+
 	private void markRegionDirty(String regionId) {
 		loadedRegionIds.add(regionId);
+		touchRegion(regionId);
 		dirtyVersionCounter++;
 		dirtyRegionVersions.put(regionId, dirtyVersionCounter);
 	}
@@ -848,6 +975,22 @@ public class NaturalSpawnManager {
 
 	private boolean shouldUnloadEmptyRegionsAfterSave() {
 		return moduleConfig.getBoolean("storage.unload-empty-regions-after-save", true);
+	}
+
+	public int getMaxLoadedRegions() {
+		return moduleConfig.getInt("storage.max-loaded-regions", 128);
+	}
+
+	private boolean shouldUnloadInactiveLoadedRegions() {
+		return moduleConfig.getBoolean("storage.unload-inactive-loaded-regions", true);
+	}
+
+	private int getLoadedRegionInactiveTtlSeconds() {
+		return moduleConfig.getInt("storage.loaded-region-inactive-ttl-seconds", 900);
+	}
+
+	private int getMaxRegionUnloadsPerCleanup() {
+		return Math.max(1, moduleConfig.getInt("storage.max-region-unloads-per-cleanup", 8));
 	}
 
 	private String getChunkKey(Chunk chunk) {

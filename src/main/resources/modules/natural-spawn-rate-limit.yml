@@ -6,6 +6,17 @@ storage:
   # If a loaded region has no tracked chunks and is already saved,
   # remove it from memory.
   unload-empty-regions-after-save: true
+  # Maximum loaded natural-spawn region files kept in memory.
+  # Set to 0 or negative to disable this limit.
+  max-loaded-regions: 128
+  # Allow unloading loaded regions that are already saved and inactive.
+  unload-inactive-loaded-regions: true
+  # A clean loaded region can be unloaded after no access for this many seconds.
+  # 900 = 15 minutes
+  loaded-region-inactive-ttl-seconds: 900
+  # To avoid one cleanup causing a big spike,
+  # unload at most this many loaded regions per cleanup/save cycle.
+  max-region-unloads-per-cleanup: 8
 cleanup:
   # If total resource and all recorded entity resources are full, remove the chunk data
   unload-when-full: true

@@ -226,7 +226,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(Component.text("FarmLimiter stats:"));
 		sender.sendMessage(Component.text("Fish_Depletion tracked chunks: " + fishTrackedChunks));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit tracked chunks: " + naturalTrackedChunks));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit loaded regions: " + naturalSpawnManager.getLoadedRegionCount()));
+		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit loaded regions: " + naturalSpawnManager.getLoadedRegionCount() + " / " + naturalSpawnManager.getMaxLoadedRegions()));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit dirty regions: " + naturalSpawnManager.getDirtyRegionCount()));
 
 		sender.sendMessage(Component.text("Fish_Depletion async save running: " + fishManager.isAsyncSaveRunning()));
