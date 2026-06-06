@@ -1,4 +1,11 @@
 enabled: true
+storage:
+  # How many chunks wide/tall per region data file.
+  # 32 means one file stores 32x32 chunks.
+  region-size-chunks: 32
+  # If a loaded region has no tracked chunks and is already saved,
+  # remove it from memory.
+  unload-empty-regions-after-save: true
 cleanup:
   # If total resource and all recorded entity resources are full, remove the chunk data
   unload-when-full: true

@@ -26,11 +26,15 @@ public class NaturalSpawnManager {
 	private final Map<String, Map<String, SpawnPool>> entityPools = new HashMap<>();
 	private final Map<String, Long> lastAccessTimes = new HashMap<>();
 
+	private final Set<String> loadedRegionIds = new HashSet<>();
+	private final Map<String, Long> dirtyRegionVersions = new HashMap<>();
+
+	private long dirtyVersionCounter = 0L;
+
 	private File configFile;
 	private YamlConfiguration moduleConfig;
 
-	private File dataFile;
-	private YamlConfiguration dataConfig;
+	private File dataRootFolder;
 
 	private final Object dataSaveLock = new Object();
 
@@ -43,8 +47,16 @@ public class NaturalSpawnManager {
 
 	public void load() {
 		loadModuleConfig();
-		loadData();
-		cleanup();
+		loadDataRoot();
+
+		totalPools.clear();
+		entityPools.clear();
+		lastAccessTimes.clear();
+		loadedRegionIds.clear();
+		dirtyRegionVersions.clear();
+		dirtyVersionCounter = 0L;
+
+		plugin.getLogger().info("Natural spawn regional data storage initialized.");
 	}
 
 	private void loadModuleConfig() {
@@ -63,134 +75,121 @@ public class NaturalSpawnManager {
 		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
 	}
 
-	private void loadData() {
-		totalPools.clear();
-		entityPools.clear();
-		lastAccessTimes.clear();
-
+	private void loadDataRoot() {
 		File dataFolder = new File(plugin.getDataFolder(), "data");
 
 		if (!dataFolder.exists()) {
 			dataFolder.mkdirs();
 		}
 
-		dataFile = new File(dataFolder, "natural-spawn-rate-limit.yml");
+		dataRootFolder = new File(dataFolder, "natural-spawn-rate-limit");
 
-		if (!dataFile.exists()) {
-			try {
-				dataFile.createNewFile();
-			} catch (IOException e) {
-				plugin.getLogger().warning("Unable to create data/natural-spawn-rate-limit.yml!");
-				e.printStackTrace();
-			}
+		if (!dataRootFolder.exists()) {
+			dataRootFolder.mkdirs();
 		}
-
-		dataConfig = YamlConfiguration.loadConfiguration(dataFile);
-
-		loadTotalPools();
-		loadEntityPools();
-
-		plugin.getLogger().info("Loaded " + totalPools.size() + " chunks of natural spawn total data.");
 	}
 
-	private void loadTotalPools() {
-		ConfigurationSection section = dataConfig.getConfigurationSection("total-pools");
-		if (section == null) {
+	private void ensureRegionLoaded(Chunk chunk) {
+		String regionId = getRegionId(chunk);
+
+		if (loadedRegionIds.contains(regionId)) {
+			return;
+		}
+
+		File regionFile = getRegionFile(regionId);
+
+		if (!regionFile.exists()) {
+			return;
+		}
+
+		YamlConfiguration regionConfig = YamlConfiguration.loadConfiguration(regionFile);
+		ConfigurationSection chunksSection = regionConfig.getConfigurationSection("chunks");
+
+		if (chunksSection == null) {
+			loadedRegionIds.add(regionId);
 			return;
 		}
 
 		long now = System.currentTimeMillis();
 
-		for (String chunkKey : section.getKeys(false)) {
-			int resource = section.getInt(chunkKey + ".resource", getTotalMaxResource());
-			long lastRegenTime = section.getLong(chunkKey + ".last-regen-time", now);
-			long lastAccessTime = section.getLong(chunkKey + ".last-access-time", now);
+		for (String chunkKey : chunksSection.getKeys(false)) {
+			String basePath = "chunks." + chunkKey;
 
-			SpawnPool pool = new SpawnPool(resource, lastRegenTime);
+			long lastAccessTime = regionConfig.getLong(basePath + ".last-access-time", now);
 
-			applyTotalRegen(pool);
+			if (regionConfig.isConfigurationSection(basePath + ".total")) {
+				int resource = regionConfig.getInt(basePath + ".total.resource", getTotalMaxResource());
+				long lastRegenTime = regionConfig.getLong(basePath + ".total.last-regen-time", now);
 
-			totalPools.put(chunkKey, pool);
+				SpawnPool totalPool = new SpawnPool(resource, lastRegenTime);
+				applyTotalRegen(totalPool);
+
+				totalPools.put(chunkKey, totalPool);
+			}
+
+			ConfigurationSection entitiesSection = regionConfig.getConfigurationSection(basePath + ".entities");
+
+			if (entitiesSection != null) {
+				Map<String, SpawnPool> perChunkEntityPools = new HashMap<>();
+
+				for (String entityTypeName : entitiesSection.getKeys(false)) {
+					int resource = entitiesSection.getInt(entityTypeName + ".resource", getEntityMaxResource(entityTypeName));
+					long lastRegenTime = entitiesSection.getLong(entityTypeName + ".last-regen-time", now);
+
+					SpawnPool entityPool = new SpawnPool(resource, lastRegenTime);
+					applyEntityRegen(entityTypeName, entityPool);
+
+					perChunkEntityPools.put(entityTypeName, entityPool);
+				}
+
+				if (!perChunkEntityPools.isEmpty()) {
+					entityPools.put(chunkKey, perChunkEntityPools);
+				}
+			}
+
 			lastAccessTimes.put(chunkKey, lastAccessTime);
 		}
-	}
 
-	private void loadEntityPools() {
-		ConfigurationSection section = dataConfig.getConfigurationSection("entity-pools");
-		if (section == null) {
-			return;
-		}
-
-		long now = System.currentTimeMillis();
-
-		for (String chunkKey : section.getKeys(false)) {
-			ConfigurationSection chunkSection = section.getConfigurationSection(chunkKey);
-			if (chunkSection == null) {
-				continue;
-			}
-
-			Map<String, SpawnPool> perChunkEntityPools = new HashMap<>();
-
-			for (String entityTypeName : chunkSection.getKeys(false)) {
-				int resource = chunkSection.getInt(entityTypeName + ".resource", getEntityMaxResource(entityTypeName));
-				long lastRegenTime = chunkSection.getLong(entityTypeName + ".last-regen-time", now);
-
-				SpawnPool pool = new SpawnPool(resource, lastRegenTime);
-				applyEntityRegen(entityTypeName, pool);
-
-				perChunkEntityPools.put(entityTypeName, pool);
-			}
-
-			if (!perChunkEntityPools.isEmpty()) {
-				entityPools.put(chunkKey, perChunkEntityPools);
-				lastAccessTimes.putIfAbsent(chunkKey, now);
-			}
-		}
+		loadedRegionIds.add(regionId);
 	}
 
 	public void save() {
-		if (dataConfig == null || dataFile == null) {
+		cleanup();
+
+		Map<String, Long> regionsToSave = new HashMap<>(dirtyRegionVersions);
+
+		if (regionsToSave.isEmpty()) {
 			return;
 		}
 
-		cleanup();
-
-		dataConfig.set("total-pools", null);
-		dataConfig.set("entity-pools", null);
-
-		for (Map.Entry<String, SpawnPool> entry : totalPools.entrySet()) {
-			String chunkKey = entry.getKey();
-			SpawnPool pool = entry.getValue();
-
-			dataConfig.set("total-pools." + chunkKey + ".resource", pool.resource);
-			dataConfig.set("total-pools." + chunkKey + ".last-regen-time", pool.lastRegenTime);
-			dataConfig.set("total-pools." + chunkKey + ".last-access-time", lastAccessTimes.getOrDefault(chunkKey, System.currentTimeMillis()));
-		}
-
-		for (Map.Entry<String, Map<String, SpawnPool>> chunkEntry : entityPools.entrySet()) {
-			String chunkKey = chunkEntry.getKey();
-
-			for (Map.Entry<String, SpawnPool> entityEntry : chunkEntry.getValue().entrySet()) {
-				String entityTypeName = entityEntry.getKey();
-				SpawnPool pool = entityEntry.getValue();
-
-				dataConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".resource", pool.resource);
-				dataConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".last-regen-time", pool.lastRegenTime);
-			}
-		}
+		Map<String, RegionSnapshot> snapshots = createRegionSnapshots(regionsToSave.keySet());
 
 		synchronized (dataSaveLock) {
-			try {
-				dataConfig.save(dataFile);
-			} catch (IOException e) {
-				plugin.getLogger().warning("An error occurred when saving data/natural-spawn-rate-limit.yml!");
-				e.printStackTrace();
+			for (Map.Entry<String, RegionSnapshot> entry : snapshots.entrySet()) {
+				writeRegionSnapshot(entry.getKey(), entry.getValue());
 			}
+		}
+
+		for (Map.Entry<String, Long> entry : regionsToSave.entrySet()) {
+			String regionId = entry.getKey();
+			long savedVersion = entry.getValue();
+
+			Long currentVersion = dirtyRegionVersions.get(regionId);
+
+			if (currentVersion != null && currentVersion == savedVersion) {
+				dirtyRegionVersions.remove(regionId);
+			}
+		}
+
+		int unloadedRegions = unloadSavedEmptyRegions();
+
+		if (unloadedRegions > 0) {
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
 		}
 	}
 
 	public void saveAsync() {
-		if (dataFile == null) {
+		if (dataRootFolder == null) {
 			return;
 		}
 
@@ -201,105 +200,171 @@ public class NaturalSpawnManager {
 
 		cleanup();
 
-		Map<String, SpawnPoolSnapshot> totalSnapshot = new HashMap<>();
-		Map<String, Map<String, SpawnPoolSnapshot>> entitySnapshot = new HashMap<>();
-		Map<String, Long> accessSnapshot = new HashMap<>(lastAccessTimes);
-
-		for (Map.Entry<String, SpawnPool> entry : totalPools.entrySet()) {
-			String chunkKey = entry.getKey();
-			SpawnPool pool = entry.getValue();
-
-			totalSnapshot.put(
-					chunkKey,
-					new SpawnPoolSnapshot(
-							pool.resource,
-							pool.lastRegenTime
-					)
-			);
+		Map<String, Long> regionsToSave = new HashMap<>(dirtyRegionVersions);
+		if (regionsToSave.isEmpty()) {
+			int unloadedRegions = unloadSavedEmptyRegions();
+			if (unloadedRegions > 0) {
+				plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
+			}
+			asyncSaveRunning.set(false);
+			if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+				Bukkit.getScheduler().runTask(plugin, this::saveAsync);
+			}
+			return;
 		}
 
-		for (Map.Entry<String, Map<String, SpawnPool>> chunkEntry : entityPools.entrySet()) {
-			String chunkKey = chunkEntry.getKey();
-
-			Map<String, SpawnPoolSnapshot> perEntitySnapshot = new HashMap<>();
-
-			for (Map.Entry<String, SpawnPool> entityEntry : chunkEntry.getValue().entrySet()) {
-				String entityTypeName = entityEntry.getKey();
-				SpawnPool pool = entityEntry.getValue();
-
-				perEntitySnapshot.put(
-						entityTypeName,
-						new SpawnPoolSnapshot(
-								pool.resource,
-								pool.lastRegenTime
-						)
-				);
-			}
-
-			if (!perEntitySnapshot.isEmpty()) {
-				entitySnapshot.put(chunkKey, perEntitySnapshot);
-			}
-		}
-
-		File targetFile = dataFile;
+		Map<String, RegionSnapshot> snapshots = createRegionSnapshots(regionsToSave.keySet());
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
 			try {
-				YamlConfiguration asyncConfig = new YamlConfiguration();
-
-				for (Map.Entry<String, SpawnPoolSnapshot> entry : totalSnapshot.entrySet()) {
-					String chunkKey = entry.getKey();
-					SpawnPoolSnapshot pool = entry.getValue();
-
-					asyncConfig.set("total-pools." + chunkKey + ".resource", pool.resource);
-					asyncConfig.set("total-pools." + chunkKey + ".last-regen-time", pool.lastRegenTime);
-					asyncConfig.set(
-							"total-pools." + chunkKey + ".last-access-time",
-							accessSnapshot.getOrDefault(chunkKey, System.currentTimeMillis())
-					);
-				}
-
-				for (Map.Entry<String, Map<String, SpawnPoolSnapshot>> chunkEntry : entitySnapshot.entrySet()) {
-					String chunkKey = chunkEntry.getKey();
-
-					for (Map.Entry<String, SpawnPoolSnapshot> entityEntry : chunkEntry.getValue().entrySet()) {
-						String entityTypeName = entityEntry.getKey();
-						SpawnPoolSnapshot pool = entityEntry.getValue();
-
-						asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".resource", pool.resource);
-						asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".last-regen-time", pool.lastRegenTime);
+				synchronized (dataSaveLock) {
+					for (Map.Entry<String, RegionSnapshot> entry : snapshots.entrySet()) {
+						writeRegionSnapshot(entry.getKey(), entry.getValue());
 					}
 				}
-
-				synchronized (dataSaveLock) {
-					asyncConfig.save(targetFile);
-				}
-			} catch (IOException e) {
-				plugin.getLogger().warning("An error occurred when asynchronously saving data/natural-spawn-rate-limit.yml!");
-				e.printStackTrace();
 			} finally {
-				asyncSaveRunning.set(false);
+				Bukkit.getScheduler().runTask(plugin, () -> {
+					for (Map.Entry<String, Long> entry : regionsToSave.entrySet()) {
+						String regionId = entry.getKey();
+						long savedVersion = entry.getValue();
 
-				if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
-					Bukkit.getScheduler().runTask(plugin, this::saveAsync);
-				}
+						Long currentVersion = dirtyRegionVersions.get(regionId);
+
+						if (currentVersion != null && currentVersion == savedVersion) {
+							dirtyRegionVersions.remove(regionId);
+						}
+					}
+
+					int unloadedRegions = unloadSavedEmptyRegions();
+
+					if (unloadedRegions > 0) {
+						plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
+					}
+
+					asyncSaveRunning.set(false);
+
+					if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+						saveAsync();
+					}
+				});
 			}
 		});
 	}
 
-	public boolean isAsyncSaveRunning() {
-		return asyncSaveRunning.get();
+	private Map<String, RegionSnapshot> createRegionSnapshots(Set<String> regionIds) {
+		Map<String, RegionSnapshot> snapshots = new HashMap<>();
+
+		for (String regionId : regionIds) {
+			RegionSnapshot snapshot = new RegionSnapshot();
+
+			Set<String> chunkKeys = new HashSet<>();
+			chunkKeys.addAll(totalPools.keySet());
+			chunkKeys.addAll(entityPools.keySet());
+			chunkKeys.addAll(lastAccessTimes.keySet());
+
+			for (String chunkKey : chunkKeys) {
+				String chunkRegionId = getRegionIdFromChunkKey(chunkKey);
+
+				if (!regionId.equals(chunkRegionId)) {
+					continue;
+				}
+
+				ChunkSnapshot chunkSnapshot = new ChunkSnapshot();
+
+				SpawnPool totalPool = totalPools.get(chunkKey);
+
+				if (totalPool != null) {
+					chunkSnapshot.totalPool = new SpawnPoolSnapshot(
+							totalPool.resource,
+							totalPool.lastRegenTime
+					);
+				}
+
+				Map<String, SpawnPool> perEntityPools = entityPools.get(chunkKey);
+
+				if (perEntityPools != null) {
+					for (Map.Entry<String, SpawnPool> entityEntry : perEntityPools.entrySet()) {
+						SpawnPool pool = entityEntry.getValue();
+
+						chunkSnapshot.entityPools.put(
+								entityEntry.getKey(),
+								new SpawnPoolSnapshot(
+										pool.resource,
+										pool.lastRegenTime
+								)
+						);
+					}
+				}
+
+				chunkSnapshot.lastAccessTime = lastAccessTimes.getOrDefault(chunkKey, System.currentTimeMillis());
+
+				if (chunkSnapshot.totalPool != null || !chunkSnapshot.entityPools.isEmpty()) {
+					snapshot.chunks.put(chunkKey, chunkSnapshot);
+				}
+			}
+
+			snapshots.put(regionId, snapshot);
+		}
+
+		return snapshots;
 	}
 
-	public boolean isAsyncSaveQueued() {
-		return asyncSaveQueued.get();
+	private void writeRegionSnapshot(String regionId, RegionSnapshot snapshot) {
+		File regionFile = getRegionFile(regionId);
+
+		if (snapshot.chunks.isEmpty()) {
+			if (regionFile.exists() && !regionFile.delete()) {
+				plugin.getLogger().warning("Unable to delete empty region data file: " + regionFile.getPath());
+			}
+			return;
+		}
+
+		File parentFolder = regionFile.getParentFile();
+
+		if (!parentFolder.exists()) {
+			parentFolder.mkdirs();
+		}
+
+		YamlConfiguration regionConfig = new YamlConfiguration();
+
+		for (Map.Entry<String, ChunkSnapshot> chunkEntry : snapshot.chunks.entrySet()) {
+			String chunkKey = chunkEntry.getKey();
+			ChunkSnapshot chunkSnapshot = chunkEntry.getValue();
+
+			String basePath = "chunks." + chunkKey;
+
+			regionConfig.set(basePath + ".last-access-time", chunkSnapshot.lastAccessTime);
+
+			if (chunkSnapshot.totalPool != null) {
+				regionConfig.set(basePath + ".total.resource", chunkSnapshot.totalPool.resource);
+				regionConfig.set(basePath + ".total.last-regen-time", chunkSnapshot.totalPool.lastRegenTime);
+			}
+
+			for (Map.Entry<String, SpawnPoolSnapshot> entityEntry : chunkSnapshot.entityPools.entrySet()) {
+				String entityTypeName = entityEntry.getKey();
+				SpawnPoolSnapshot pool = entityEntry.getValue();
+
+				regionConfig.set(basePath + ".entities." + entityTypeName + ".resource", pool.resource);
+				regionConfig.set(basePath + ".entities." + entityTypeName + ".last-regen-time", pool.lastRegenTime);
+			}
+		}
+
+		try {
+			regionConfig.save(regionFile);
+		} catch (IOException e) {
+			plugin.getLogger().warning("An error occurred when saving region data file: " + regionFile.getPath());
+			e.printStackTrace();
+		}
 	}
 
 	public void cleanup() {
 		int removed = cleanupAndGetRemovedCount();
-
 		if (removed > 0) {
-			plugin.getLogger().info("Natural_Spawn_Rate_Limit cleanup removed " + removed + " chunk records. Remaining: " + getTrackedChunkCount());
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit cleanup removed " + removed + " chunk records. Remaining loaded tracked chunks: " + getTrackedChunkCount());
+		}
+		int unloadedRegions = unloadSavedEmptyRegions();
+		if (unloadedRegions > 0) {
+			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " empty saved regions from memory.");
 		}
 	}
 
@@ -314,10 +379,19 @@ public class NaturalSpawnManager {
 		allChunkKeys.addAll(lastAccessTimes.keySet());
 
 		for (String chunkKey : allChunkKeys) {
+			String regionId = getRegionIdFromChunkKey(chunkKey);
+
 			SpawnPool totalPool = totalPools.get(chunkKey);
 
 			if (totalPool != null) {
+				int beforeResource = totalPool.resource;
+				long beforeRegenTime = totalPool.lastRegenTime;
+
 				applyTotalRegen(totalPool);
+
+				if (beforeResource != totalPool.resource || beforeRegenTime != totalPool.lastRegenTime) {
+					markRegionDirty(regionId);
+				}
 			}
 
 			Map<String, SpawnPool> perEntityPools = entityPools.get(chunkKey);
@@ -330,15 +404,24 @@ public class NaturalSpawnManager {
 					String entityTypeName = entry.getKey();
 					SpawnPool pool = entry.getValue();
 
+					int beforeResource = pool.resource;
+					long beforeRegenTime = pool.lastRegenTime;
+
 					applyEntityRegen(entityTypeName, pool);
+
+					if (beforeResource != pool.resource || beforeRegenTime != pool.lastRegenTime) {
+						markRegionDirty(regionId);
+					}
 
 					if (shouldUnloadWhenFull() && pool.resource >= getEntityMaxResource(entityTypeName)) {
 						iterator.remove();
+						markRegionDirty(regionId);
 					}
 				}
 
 				if (perEntityPools.isEmpty()) {
 					entityPools.remove(chunkKey);
+					markRegionDirty(regionId);
 				}
 			}
 
@@ -346,6 +429,7 @@ public class NaturalSpawnManager {
 				totalPools.remove(chunkKey);
 				entityPools.remove(chunkKey);
 				lastAccessTimes.remove(chunkKey);
+				markRegionDirty(regionId);
 			}
 		}
 
@@ -386,8 +470,79 @@ public class NaturalSpawnManager {
 		return allChunkKeys.size();
 	}
 
+	public int getLoadedRegionCount() {
+		return loadedRegionIds.size();
+	}
+
+	public int getDirtyRegionCount() {
+		return dirtyRegionVersions.size();
+	}
+
+	public int unloadSavedEmptyRegions() {
+		if (!shouldUnloadEmptyRegionsAfterSave()) {
+			return 0;
+		}
+
+		int before = loadedRegionIds.size();
+
+		Iterator<String> iterator = loadedRegionIds.iterator();
+
+		while (iterator.hasNext()) {
+			String regionId = iterator.next();
+
+			if (dirtyRegionVersions.containsKey(regionId)) {
+				continue;
+			}
+
+			if (regionHasTrackedChunks(regionId)) {
+				continue;
+			}
+
+			iterator.remove();
+		}
+
+		return before - loadedRegionIds.size();
+	}
+
+	private boolean regionHasTrackedChunks(String regionId) {
+		for (String chunkKey : totalPools.keySet()) {
+			if (regionId.equals(getRegionIdFromChunkKey(chunkKey))) {
+				return true;
+			}
+		}
+
+		for (String chunkKey : entityPools.keySet()) {
+			if (regionId.equals(getRegionIdFromChunkKey(chunkKey))) {
+				return true;
+			}
+		}
+
+		for (String chunkKey : lastAccessTimes.keySet()) {
+			if (regionId.equals(getRegionIdFromChunkKey(chunkKey))) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public boolean isAsyncSaveRunning() {
+		return asyncSaveRunning.get();
+	}
+
+	public boolean isAsyncSaveQueued() {
+		return asyncSaveQueued.get();
+	}
+
 	private void touch(String chunkKey) {
 		lastAccessTimes.put(chunkKey, System.currentTimeMillis());
+		markRegionDirty(getRegionIdFromChunkKey(chunkKey));
+	}
+
+	private void markRegionDirty(String regionId) {
+		loadedRegionIds.add(regionId);
+		dirtyVersionCounter++;
+		dirtyRegionVersions.put(regionId, dirtyVersionCounter);
 	}
 
 	public boolean isEnabled() {
@@ -461,6 +616,8 @@ public class NaturalSpawnManager {
 	}
 
 	public boolean tryConsumeSpawnResource(Chunk chunk, EntityType entityType) {
+		ensureRegionLoaded(chunk);
+
 		String chunkKey = getChunkKey(chunk);
 		String entityTypeName = entityType.name();
 
@@ -491,10 +648,14 @@ public class NaturalSpawnManager {
 		}
 
 		totalPool.resource--;
+		markRegionDirty(getRegionId(chunk));
+
 		return true;
 	}
 
 	public int getRemainingTotalResource(Chunk chunk) {
+		ensureRegionLoaded(chunk);
+
 		String chunkKey = getChunkKey(chunk);
 
 		touch(chunkKey);
@@ -502,19 +663,24 @@ public class NaturalSpawnManager {
 		SpawnPool totalPool = totalPools.computeIfAbsent(chunkKey, key -> createTotalPool());
 		applyTotalRegen(totalPool);
 
+		markRegionDirty(getRegionId(chunk));
+
 		return totalPool.resource;
 	}
 
 	public int peekRemainingTotalResource(Chunk chunk) {
+		ensureRegionLoaded(chunk);
+
 		String chunkKey = getChunkKey(chunk);
+
 		SpawnPool totalPool = totalPools.get(chunkKey);
+
 		if (totalPool == null) {
 			return getTotalMaxResource();
 		}
+
 		applyTotalRegen(totalPool);
-		if (totalPool.resource >= getTotalMaxResource() && shouldUnloadWhenFull()) {
-			return getTotalMaxResource();
-		}
+
 		return totalPool.resource;
 	}
 
@@ -524,6 +690,8 @@ public class NaturalSpawnManager {
 		if (!hasEntityLimit(entityTypeName)) {
 			return -1;
 		}
+
+		ensureRegionLoaded(chunk);
 
 		String chunkKey = getChunkKey(chunk);
 
@@ -538,27 +706,36 @@ public class NaturalSpawnManager {
 
 		applyEntityRegen(entityTypeName, entityPool);
 
+		markRegionDirty(getRegionId(chunk));
+
 		return entityPool.resource;
 	}
 
 	public int peekRemainingEntityResource(Chunk chunk, EntityType entityType) {
 		String entityTypeName = entityType.name();
+
 		if (!hasEntityLimit(entityTypeName)) {
 			return -1;
 		}
+
+		ensureRegionLoaded(chunk);
+
 		String chunkKey = getChunkKey(chunk);
+
 		Map<String, SpawnPool> perChunkEntityPools = entityPools.get(chunkKey);
+
 		if (perChunkEntityPools == null) {
 			return getEntityMaxResource(entityTypeName);
 		}
+
 		SpawnPool entityPool = perChunkEntityPools.get(entityTypeName);
+
 		if (entityPool == null) {
 			return getEntityMaxResource(entityTypeName);
 		}
+
 		applyEntityRegen(entityTypeName, entityPool);
-		if (entityPool.resource >= getEntityMaxResource(entityTypeName) && shouldUnloadWhenFull()) {
-			return getEntityMaxResource(entityTypeName);
-		}
+
 		return entityPool.resource;
 	}
 
@@ -665,12 +842,72 @@ public class NaturalSpawnManager {
 		return moduleConfig.getInt("cleanup.inactive-ttl-seconds", 1800);
 	}
 
+	private int getRegionSizeChunks() {
+		return Math.max(1, moduleConfig.getInt("storage.region-size-chunks", 32));
+	}
+
+	private boolean shouldUnloadEmptyRegionsAfterSave() {
+		return moduleConfig.getBoolean("storage.unload-empty-regions-after-save", true);
+	}
+
 	private String getChunkKey(Chunk chunk) {
 		String worldId = chunk.getWorld().getUID().toString();
 		int x = chunk.getX();
 		int z = chunk.getZ();
 
 		return worldId + "_" + x + "_" + z;
+	}
+
+	private String getRegionId(Chunk chunk) {
+		String worldId = chunk.getWorld().getUID().toString();
+		int regionSize = getRegionSizeChunks();
+
+		int regionX = Math.floorDiv(chunk.getX(), regionSize);
+		int regionZ = Math.floorDiv(chunk.getZ(), regionSize);
+
+		return worldId + "_" + regionX + "_" + regionZ;
+	}
+
+	private String getRegionIdFromChunkKey(String chunkKey) {
+		String[] parts = chunkKey.split("_");
+
+		if (parts.length != 3) {
+			return "unknown_0_0";
+		}
+
+		String worldId = parts[0];
+		int chunkX;
+		int chunkZ;
+
+		try {
+			chunkX = Integer.parseInt(parts[1]);
+			chunkZ = Integer.parseInt(parts[2]);
+		} catch (NumberFormatException exception) {
+			return worldId + "_0_0";
+		}
+
+		int regionSize = getRegionSizeChunks();
+
+		int regionX = Math.floorDiv(chunkX, regionSize);
+		int regionZ = Math.floorDiv(chunkZ, regionSize);
+
+		return worldId + "_" + regionX + "_" + regionZ;
+	}
+
+	private File getRegionFile(String regionId) {
+		String[] parts = regionId.split("_");
+
+		if (parts.length != 3) {
+			return new File(dataRootFolder, "unknown/r.0.0.yml");
+		}
+
+		String worldId = parts[0];
+		String regionX = parts[1];
+		String regionZ = parts[2];
+
+		File worldFolder = new File(dataRootFolder, worldId);
+
+		return new File(worldFolder, "r." + regionX + "." + regionZ + ".yml");
 	}
 
 	private static class SpawnPool {
@@ -686,9 +923,20 @@ public class NaturalSpawnManager {
 	private static class SpawnPoolSnapshot {
 		private final int resource;
 		private final long lastRegenTime;
+
 		private SpawnPoolSnapshot(int resource, long lastRegenTime) {
 			this.resource = resource;
 			this.lastRegenTime = lastRegenTime;
 		}
+	}
+
+	private static class ChunkSnapshot {
+		private SpawnPoolSnapshot totalPool;
+		private final Map<String, SpawnPoolSnapshot> entityPools = new HashMap<>();
+		private long lastAccessTime;
+	}
+
+	private static class RegionSnapshot {
+		private final Map<String, ChunkSnapshot> chunks = new HashMap<>();
 	}
 }
