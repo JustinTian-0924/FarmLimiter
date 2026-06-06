@@ -115,7 +115,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		Chunk chunk = player.getLocation().getChunk();
 
-		int remainingFish = fishManager.getRemainingFish(chunk);
+		int remainingFish = fishManager.peekRemainingFish(chunk);
 		int maxFish = fishManager.getMaxFish();
 		int regenAmount = fishManager.getRegenAmount();
 		int regenIntervalSeconds = fishManager.getRegenIntervalSeconds();
@@ -140,7 +140,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		Chunk chunk = player.getLocation().getChunk();
 
-		int remainingTotal = naturalSpawnManager.getRemainingTotalResource(chunk);
+		int remainingTotal = naturalSpawnManager.peekRemainingTotalResource(chunk);
 		int maxTotal = naturalSpawnManager.getTotalMaxResource();
 		int regenAmount = naturalSpawnManager.getTotalRegenAmount();
 		int regenIntervalSeconds = naturalSpawnManager.getTotalRegenIntervalSeconds();
@@ -163,7 +163,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				return;
 			}
 
-			int entityResource = naturalSpawnManager.getRemainingEntityResource(chunk, entityType);
+			int entityResource = naturalSpawnManager.peekRemainingEntityResource(chunk, entityType);
 
 			if (entityResource < 0) {
 				player.sendMessage(Component.text(entityName + " does not have a separate limit in modules/natural-spawn-rate-limit.yml."));
@@ -226,6 +226,12 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(Component.text("FarmLimiter stats:"));
 		sender.sendMessage(Component.text("Fish_Depletion tracked chunks: " + fishTrackedChunks));
 		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit tracked chunks: " + naturalTrackedChunks));
+
+		sender.sendMessage(Component.text("Fish_Depletion async save running: " + fishManager.isAsyncSaveRunning()));
+		sender.sendMessage(Component.text("Fish_Depletion async save queued: " + fishManager.isAsyncSaveQueued()));
+
+		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit async save running: " + naturalSpawnManager.isAsyncSaveRunning()));
+		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit async save queued: " + naturalSpawnManager.isAsyncSaveQueued()));
 	}
 
 	private void handleCleanup(CommandSender sender) {

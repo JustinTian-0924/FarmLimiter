@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class FishManager {
 
@@ -23,6 +24,11 @@ public class FishManager {
 
 	private File dataFile;
 	private YamlConfiguration dataConfig;
+
+	private final Object dataSaveLock = new Object();
+
+	private final AtomicBoolean asyncSaveRunning = new AtomicBoolean(false);
+	private final AtomicBoolean asyncSaveQueued = new AtomicBoolean(false);
 
 	public FishManager(JavaPlugin plugin) {
 		this.plugin = plugin;
@@ -115,11 +121,13 @@ public class FishManager {
 			dataConfig.set("fish-pools." + key + ".last-access-time", pool.lastAccessTime);
 		}
 
-		try {
-			dataConfig.save(dataFile);
-		} catch (IOException e) {
-			plugin.getLogger().warning("An error occurred when saving data/fish-depletion.yml!");
-			e.printStackTrace();
+		synchronized (dataSaveLock) {
+			try {
+				dataConfig.save(dataFile);
+			} catch (IOException e) {
+				plugin.getLogger().warning("An error occurred when saving data/fish-depletion.yml!");
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -128,7 +136,11 @@ public class FishManager {
 			return;
 		}
 
-		// Clean up in main processor, and copy a snapshot
+		if (!asyncSaveRunning.compareAndSet(false, true)) {
+			asyncSaveQueued.set(true);
+			return;
+		}
+
 		cleanup();
 
 		Map<String, FishPoolSnapshot> snapshot = new HashMap<>();
@@ -149,26 +161,40 @@ public class FishManager {
 
 		File targetFile = dataFile;
 
-		// the backend process only in charge of writing the file and won't touching any active Bukkit related objects
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-			YamlConfiguration asyncConfig = new YamlConfiguration();
-
-			for (Map.Entry<String, FishPoolSnapshot> entry : snapshot.entrySet()) {
-				String key = entry.getKey();
-				FishPoolSnapshot pool = entry.getValue();
-
-				asyncConfig.set("fish-pools." + key + ".fish", pool.fish);
-				asyncConfig.set("fish-pools." + key + ".last-regen-time", pool.lastRegenTime);
-				asyncConfig.set("fish-pools." + key + ".last-access-time", pool.lastAccessTime);
-			}
-
 			try {
-				asyncConfig.save(targetFile);
+				YamlConfiguration asyncConfig = new YamlConfiguration();
+
+				for (Map.Entry<String, FishPoolSnapshot> entry : snapshot.entrySet()) {
+					String key = entry.getKey();
+					FishPoolSnapshot pool = entry.getValue();
+
+					asyncConfig.set("fish-pools." + key + ".fish", pool.fish);
+					asyncConfig.set("fish-pools." + key + ".last-regen-time", pool.lastRegenTime);
+					asyncConfig.set("fish-pools." + key + ".last-access-time", pool.lastAccessTime);
+				}
+
+				synchronized (dataSaveLock) {
+					asyncConfig.save(targetFile);
+				}
 			} catch (IOException e) {
 				plugin.getLogger().warning("An error occurred when asynchronously saving data/fish-depletion.yml!");
 				e.printStackTrace();
+			} finally {
+				asyncSaveRunning.set(false);
+
+				if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+					Bukkit.getScheduler().runTask(plugin, this::saveAsync);
+				}
 			}
 		});
+	}
+
+	public boolean isAsyncSaveRunning() {
+		return asyncSaveRunning.get();
+	}
+	public boolean isAsyncSaveQueued() {
+		return asyncSaveQueued.get();
 	}
 
 	public void cleanup() {
@@ -234,6 +260,19 @@ public class FishManager {
 
 		applyRegen(pool);
 
+		return pool.fish;
+	}
+
+	public int peekRemainingFish(Chunk chunk) {
+		String key = getChunkKey(chunk);
+		FishPool pool = fishPools.get(key);
+		if (pool == null) {
+			return getMaxFish();
+		}
+		applyRegen(pool);
+		if (pool.fish >= getMaxFish() && shouldUnloadWhenFull()) {
+			return getMaxFish();
+		}
 		return pool.fish;
 	}
 

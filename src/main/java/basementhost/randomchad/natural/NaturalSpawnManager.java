@@ -16,6 +16,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NaturalSpawnManager {
 
@@ -30,6 +31,11 @@ public class NaturalSpawnManager {
 
 	private File dataFile;
 	private YamlConfiguration dataConfig;
+
+	private final Object dataSaveLock = new Object();
+
+	private final AtomicBoolean asyncSaveRunning = new AtomicBoolean(false);
+	private final AtomicBoolean asyncSaveQueued = new AtomicBoolean(false);
 
 	public NaturalSpawnManager(JavaPlugin plugin) {
 		this.plugin = plugin;
@@ -173,11 +179,13 @@ public class NaturalSpawnManager {
 			}
 		}
 
-		try {
-			dataConfig.save(dataFile);
-		} catch (IOException e) {
-			plugin.getLogger().warning("An error occurred when saving data/natural-spawn-rate-limit.yml!");
-			e.printStackTrace();
+		synchronized (dataSaveLock) {
+			try {
+				dataConfig.save(dataFile);
+			} catch (IOException e) {
+				plugin.getLogger().warning("An error occurred when saving data/natural-spawn-rate-limit.yml!");
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -186,7 +194,11 @@ public class NaturalSpawnManager {
 			return;
 		}
 
-		// Main process clear and duplicate the snapshot
+		if (!asyncSaveRunning.compareAndSet(false, true)) {
+			asyncSaveQueued.set(true);
+			return;
+		}
+
 		cleanup();
 
 		Map<String, SpawnPoolSnapshot> totalSnapshot = new HashMap<>();
@@ -231,41 +243,56 @@ public class NaturalSpawnManager {
 
 		File targetFile = dataFile;
 
-		// Asyc process only write normal data to the file, won't bypass any paper & bukkit limitation
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-			YamlConfiguration asyncConfig = new YamlConfiguration();
-
-			for (Map.Entry<String, SpawnPoolSnapshot> entry : totalSnapshot.entrySet()) {
-				String chunkKey = entry.getKey();
-				SpawnPoolSnapshot pool = entry.getValue();
-
-				asyncConfig.set("total-pools." + chunkKey + ".resource", pool.resource);
-				asyncConfig.set("total-pools." + chunkKey + ".last-regen-time", pool.lastRegenTime);
-				asyncConfig.set(
-						"total-pools." + chunkKey + ".last-access-time",
-						accessSnapshot.getOrDefault(chunkKey, System.currentTimeMillis())
-				);
-			}
-
-			for (Map.Entry<String, Map<String, SpawnPoolSnapshot>> chunkEntry : entitySnapshot.entrySet()) {
-				String chunkKey = chunkEntry.getKey();
-
-				for (Map.Entry<String, SpawnPoolSnapshot> entityEntry : chunkEntry.getValue().entrySet()) {
-					String entityTypeName = entityEntry.getKey();
-					SpawnPoolSnapshot pool = entityEntry.getValue();
-
-					asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".resource", pool.resource);
-					asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".last-regen-time", pool.lastRegenTime);
-				}
-			}
-
 			try {
-				asyncConfig.save(targetFile);
+				YamlConfiguration asyncConfig = new YamlConfiguration();
+
+				for (Map.Entry<String, SpawnPoolSnapshot> entry : totalSnapshot.entrySet()) {
+					String chunkKey = entry.getKey();
+					SpawnPoolSnapshot pool = entry.getValue();
+
+					asyncConfig.set("total-pools." + chunkKey + ".resource", pool.resource);
+					asyncConfig.set("total-pools." + chunkKey + ".last-regen-time", pool.lastRegenTime);
+					asyncConfig.set(
+							"total-pools." + chunkKey + ".last-access-time",
+							accessSnapshot.getOrDefault(chunkKey, System.currentTimeMillis())
+					);
+				}
+
+				for (Map.Entry<String, Map<String, SpawnPoolSnapshot>> chunkEntry : entitySnapshot.entrySet()) {
+					String chunkKey = chunkEntry.getKey();
+
+					for (Map.Entry<String, SpawnPoolSnapshot> entityEntry : chunkEntry.getValue().entrySet()) {
+						String entityTypeName = entityEntry.getKey();
+						SpawnPoolSnapshot pool = entityEntry.getValue();
+
+						asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".resource", pool.resource);
+						asyncConfig.set("entity-pools." + chunkKey + "." + entityTypeName + ".last-regen-time", pool.lastRegenTime);
+					}
+				}
+
+				synchronized (dataSaveLock) {
+					asyncConfig.save(targetFile);
+				}
 			} catch (IOException e) {
 				plugin.getLogger().warning("An error occurred when asynchronously saving data/natural-spawn-rate-limit.yml!");
 				e.printStackTrace();
+			} finally {
+				asyncSaveRunning.set(false);
+
+				if (asyncSaveQueued.getAndSet(false) && plugin.isEnabled()) {
+					Bukkit.getScheduler().runTask(plugin, this::saveAsync);
+				}
 			}
 		});
+	}
+
+	public boolean isAsyncSaveRunning() {
+		return asyncSaveRunning.get();
+	}
+
+	public boolean isAsyncSaveQueued() {
+		return asyncSaveQueued.get();
 	}
 
 	public void cleanup() {
@@ -478,6 +505,19 @@ public class NaturalSpawnManager {
 		return totalPool.resource;
 	}
 
+	public int peekRemainingTotalResource(Chunk chunk) {
+		String chunkKey = getChunkKey(chunk);
+		SpawnPool totalPool = totalPools.get(chunkKey);
+		if (totalPool == null) {
+			return getTotalMaxResource();
+		}
+		applyTotalRegen(totalPool);
+		if (totalPool.resource >= getTotalMaxResource() && shouldUnloadWhenFull()) {
+			return getTotalMaxResource();
+		}
+		return totalPool.resource;
+	}
+
 	public int getRemainingEntityResource(Chunk chunk, EntityType entityType) {
 		String entityTypeName = entityType.name();
 
@@ -498,6 +538,27 @@ public class NaturalSpawnManager {
 
 		applyEntityRegen(entityTypeName, entityPool);
 
+		return entityPool.resource;
+	}
+
+	public int peekRemainingEntityResource(Chunk chunk, EntityType entityType) {
+		String entityTypeName = entityType.name();
+		if (!hasEntityLimit(entityTypeName)) {
+			return -1;
+		}
+		String chunkKey = getChunkKey(chunk);
+		Map<String, SpawnPool> perChunkEntityPools = entityPools.get(chunkKey);
+		if (perChunkEntityPools == null) {
+			return getEntityMaxResource(entityTypeName);
+		}
+		SpawnPool entityPool = perChunkEntityPools.get(entityTypeName);
+		if (entityPool == null) {
+			return getEntityMaxResource(entityTypeName);
+		}
+		applyEntityRegen(entityTypeName, entityPool);
+		if (entityPool.resource >= getEntityMaxResource(entityTypeName) && shouldUnloadWhenFull()) {
+			return getEntityMaxResource(entityTypeName);
+		}
 		return entityPool.resource;
 	}
 
