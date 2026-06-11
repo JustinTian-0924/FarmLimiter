@@ -1,9 +1,6 @@
 package basementhost.randomchad.natural;
 
-import basementhost.randomchad.storage.AsyncSaveGuard;
-import basementhost.randomchad.storage.RegionKeyUtil;
-import basementhost.randomchad.storage.RegionLoadState;
-import basementhost.randomchad.storage.RegionUnloadHelper;
+import basementhost.randomchad.storage.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
@@ -34,6 +31,7 @@ public class NaturalSpawnManager {
 
 	private File configFile;
 	private YamlConfiguration moduleConfig;
+	private RegionStorageConfig storageConfig;
 
 	private File dataRootFolder;
 
@@ -72,6 +70,7 @@ public class NaturalSpawnManager {
 		}
 
 		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+		storageConfig = new RegionStorageConfig(moduleConfig);
 	}
 
 	private void loadDataRoot() {
@@ -890,27 +889,27 @@ public class NaturalSpawnManager {
 	}
 
 	private int getRegionSizeChunks() {
-		return Math.max(1, moduleConfig.getInt("storage.region-size-chunks", 32));
+		return storageConfig.getRegionSizeChunks();
 	}
 
 	private boolean shouldUnloadEmptyRegionsAfterSave() {
-		return moduleConfig.getBoolean("storage.unload-empty-regions-after-save", true);
+		return storageConfig.shouldUnloadEmptyRegionsAfterSave();
 	}
 
 	public int getMaxLoadedRegions() {
-		return moduleConfig.getInt("storage.max-loaded-regions", 128);
+		return storageConfig.getMaxLoadedRegions();
 	}
 
 	private boolean shouldUnloadInactiveLoadedRegions() {
-		return moduleConfig.getBoolean("storage.unload-inactive-loaded-regions", true);
+		return storageConfig.shouldUnloadInactiveLoadedRegions();
 	}
 
 	private int getLoadedRegionInactiveTtlSeconds() {
-		return moduleConfig.getInt("storage.loaded-region-inactive-ttl-seconds", 900);
+		return storageConfig.getLoadedRegionInactiveTtlSeconds();
 	}
 
 	private int getMaxRegionUnloadsPerCleanup() {
-		return Math.max(1, moduleConfig.getInt("storage.max-region-unloads-per-cleanup", 8));
+		return storageConfig.getMaxRegionUnloadsPerCleanup();
 	}
 
 	private String getChunkKey(Chunk chunk) {
