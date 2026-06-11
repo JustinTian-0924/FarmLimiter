@@ -151,11 +151,11 @@ public class NaturalSpawnManager {
 
 		Map<String, RegionSnapshot> snapshots = createRegionSnapshots(regionsToSave.keySet());
 
-		synchronized (dataSaveLock) {
-			for (Map.Entry<String, RegionSnapshot> entry : snapshots.entrySet()) {
-				writeRegionSnapshot(entry.getKey(), entry.getValue());
-			}
-		}
+		RegionSnapshotWriteHelper.writeSnapshots(
+				dataSaveLock,
+				snapshots,
+				this::writeRegionSnapshot
+		);
 
 		RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
 
@@ -194,11 +194,11 @@ public class NaturalSpawnManager {
 
 		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
 			try {
-				synchronized (dataSaveLock) {
-					for (Map.Entry<String, RegionSnapshot> entry : snapshots.entrySet()) {
-						writeRegionSnapshot(entry.getKey(), entry.getValue());
-					}
-				}
+				RegionSnapshotWriteHelper.writeSnapshots(
+						dataSaveLock,
+						snapshots,
+						this::writeRegionSnapshot
+				);
 			} finally {
 				Bukkit.getScheduler().runTask(plugin, () -> {
 					RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
@@ -278,17 +278,14 @@ public class NaturalSpawnManager {
 		File regionFile = getRegionFile(regionId);
 
 		if (snapshot.chunks.isEmpty()) {
-			if (regionFile.exists() && !regionFile.delete()) {
-				plugin.getLogger().warning("Unable to delete empty natural spawn region data file: " + regionFile.getPath());
-			}
+			RegionFileIoHelper.deleteEmptyRegionFile(
+					plugin,
+					regionFile,
+					"Unable to delete empty natural spawn region data file"
+			);
 			return;
 		}
-
-		File parentFolder = regionFile.getParentFile();
-
-		if (!parentFolder.exists()) {
-			parentFolder.mkdirs();
-		}
+		RegionFileIoHelper.ensureParentFolderExists(regionFile);
 
 		YamlConfiguration regionConfig = new YamlConfiguration();
 
@@ -314,12 +311,12 @@ public class NaturalSpawnManager {
 			}
 		}
 
-		try {
-			regionConfig.save(regionFile);
-		} catch (IOException e) {
-			plugin.getLogger().warning("An error occurred when saving natural spawn region data file: " + regionFile.getPath());
-			e.printStackTrace();
-		}
+		RegionFileIoHelper.saveRegionConfig(
+				plugin,
+				regionConfig,
+				regionFile,
+				"An error occurred when saving fish region data file"
+		);
 	}
 
 	public void cleanup() {
