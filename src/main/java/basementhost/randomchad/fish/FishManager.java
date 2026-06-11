@@ -50,34 +50,15 @@ public class FishManager {
 	}
 
 	private void loadModuleConfig() {
-		File modulesFolder = new File(plugin.getDataFolder(), "modules");
+		ModuleConfigLoader configLoader = new ModuleConfigLoader(plugin, "fish-depletion.yml");
 
-		if (!modulesFolder.exists()) {
-			modulesFolder.mkdirs();
-		}
-
-		configFile = new File(modulesFolder, "fish-depletion.yml");
-
-		if (!configFile.exists()) {
-			plugin.saveResource("modules/fish-depletion.yml", false);
-		}
-
-		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+		configFile = configLoader.getConfigFile();
+		moduleConfig = configLoader.getConfig();
 		storageConfig = new RegionStorageConfig(moduleConfig);
 	}
 
 	private void loadDataRoot() {
-		File dataFolder = new File(plugin.getDataFolder(), "data");
-
-		if (!dataFolder.exists()) {
-			dataFolder.mkdirs();
-		}
-
-		dataRootFolder = new File(dataFolder, "fish-depletion");
-
-		if (!dataRootFolder.exists()) {
-			dataRootFolder.mkdirs();
-		}
+		dataRootFolder = DataRootLoader.load(plugin, "fish-depletion");
 	}
 
 	private void ensureRegionLoaded(Chunk chunk) {
@@ -136,9 +117,7 @@ public class FishManager {
 		if (regionsToSave.isEmpty()) {
 			int unloadedRegions = enforceLoadedRegionLimit();
 
-			if (unloadedRegions > 0) {
-				plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
-			}
+			RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Fish_Depletion", unloadedRegions);
 
 			return;
 		}
@@ -151,18 +130,11 @@ public class FishManager {
 			}
 		}
 
-		for (Map.Entry<String, Long> entry : regionsToSave.entrySet()) {
-			String regionId = entry.getKey();
-			long savedVersion = entry.getValue();
-
-			regionState.clearDirtyIfVersionMatches(regionId, savedVersion);
-		}
+		RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
 
 		int unloadedRegions = enforceLoadedRegionLimit();
 
-		if (unloadedRegions > 0) {
-			plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
-		}
+		RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Fish_Depletion", unloadedRegions);
 	}
 
 	public void saveAsync() {
@@ -181,9 +153,7 @@ public class FishManager {
 		if (regionsToSave.isEmpty()) {
 			int unloadedRegions = enforceLoadedRegionLimit();
 
-			if (unloadedRegions > 0) {
-				plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
-			}
+			RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Fish_Depletion", unloadedRegions);
 
 			asyncSaveGuard.finish();
 			if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
@@ -204,18 +174,11 @@ public class FishManager {
 				}
 			} finally {
 				Bukkit.getScheduler().runTask(plugin, () -> {
-					for (Map.Entry<String, Long> entry : regionsToSave.entrySet()) {
-						String regionId = entry.getKey();
-						long savedVersion = entry.getValue();
-
-						regionState.clearDirtyIfVersionMatches(regionId, savedVersion);
-					}
+					RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
 
 					int unloadedRegions = enforceLoadedRegionLimit();
 
-					if (unloadedRegions > 0) {
-						plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
-					}
+					RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Fish_Depletion", unloadedRegions);
 
 					asyncSaveGuard.finish();
 					if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
@@ -302,9 +265,7 @@ public class FishManager {
 
 		int unloadedRegions = enforceLoadedRegionLimit();
 
-		if (unloadedRegions > 0) {
-			plugin.getLogger().info("Fish_Depletion unloaded " + unloadedRegions + " saved regions from memory.");
-		}
+		RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Fish_Depletion", unloadedRegions);
 	}
 
 	public int cleanupAndGetRemovedCount() {

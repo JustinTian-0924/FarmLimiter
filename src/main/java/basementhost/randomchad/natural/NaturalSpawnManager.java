@@ -57,35 +57,17 @@ public class NaturalSpawnManager {
 	}
 
 	private void loadModuleConfig() {
-		File modulesFolder = new File(plugin.getDataFolder(), "modules");
+		ModuleConfigLoader configLoader = new ModuleConfigLoader(plugin, "natural-spawn-rate-limit.yml");
 
-		if (!modulesFolder.exists()) {
-			modulesFolder.mkdirs();
-		}
-
-		configFile = new File(modulesFolder, "natural-spawn-rate-limit.yml");
-
-		if (!configFile.exists()) {
-			plugin.saveResource("modules/natural-spawn-rate-limit.yml", false);
-		}
-
-		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+		configFile = configLoader.getConfigFile();
+		moduleConfig = configLoader.getConfig();
 		storageConfig = new RegionStorageConfig(moduleConfig);
 	}
 
 	private void loadDataRoot() {
-		File dataFolder = new File(plugin.getDataFolder(), "data");
-
-		if (!dataFolder.exists()) {
-			dataFolder.mkdirs();
-		}
-
-		dataRootFolder = new File(dataFolder, "natural-spawn-rate-limit");
-
-		if (!dataRootFolder.exists()) {
-			dataRootFolder.mkdirs();
-		}
+		dataRootFolder = DataRootLoader.load(plugin, "natural-spawn-rate-limit");
 	}
+
 
 	private void ensureRegionLoaded(Chunk chunk) {
 		String regionId = getRegionId(chunk);
@@ -162,9 +144,7 @@ public class NaturalSpawnManager {
 		if (regionsToSave.isEmpty()) {
 			int unloadedRegions = enforceLoadedRegionLimit();
 
-			if (unloadedRegions > 0) {
-				plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
-			}
+			RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Natural_Spawn_Rate_Limit", unloadedRegions);
 
 			return;
 		}
@@ -177,18 +157,11 @@ public class NaturalSpawnManager {
 			}
 		}
 
-		for (Map.Entry<String, Long> entry : regionsToSave.entrySet()) {
-			String regionId = entry.getKey();
-			long savedVersion = entry.getValue();
-
-			regionState.clearDirtyIfVersionMatches(regionId, savedVersion);
-		}
+		RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
 
 		int unloadedRegions = enforceLoadedRegionLimit();
 
-		if (unloadedRegions > 0) {
-			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
-		}
+		RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Natural_Spawn_Rate_Limit", unloadedRegions);
 	}
 
 	public void saveAsync() {
@@ -207,9 +180,7 @@ public class NaturalSpawnManager {
 		if (regionsToSave.isEmpty()) {
 			int unloadedRegions = enforceLoadedRegionLimit();
 
-			if (unloadedRegions > 0) {
-				plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
-			}
+			RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Natural_Spawn_Rate_Limit", unloadedRegions);
 
 			asyncSaveGuard.finish();
 			if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
@@ -230,18 +201,11 @@ public class NaturalSpawnManager {
 				}
 			} finally {
 				Bukkit.getScheduler().runTask(plugin, () -> {
-					for (Map.Entry<String, Long> entry : regionsToSave.entrySet()) {
-						String regionId = entry.getKey();
-						long savedVersion = entry.getValue();
-
-						regionState.clearDirtyIfVersionMatches(regionId, savedVersion);
-					}
+					RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
 
 					int unloadedRegions = enforceLoadedRegionLimit();
 
-					if (unloadedRegions > 0) {
-						plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
-					}
+					RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Natural_Spawn_Rate_Limit", unloadedRegions);
 
 					asyncSaveGuard.finish();
 					if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
@@ -367,9 +331,7 @@ public class NaturalSpawnManager {
 
 		int unloadedRegions = enforceLoadedRegionLimit();
 
-		if (unloadedRegions > 0) {
-			plugin.getLogger().info("Natural_Spawn_Rate_Limit unloaded " + unloadedRegions + " saved regions from memory.");
-		}
+		RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Natural_Spawn_Rate_Limit", unloadedRegions);
 	}
 
 	public int cleanupAndGetRemovedCount() {
