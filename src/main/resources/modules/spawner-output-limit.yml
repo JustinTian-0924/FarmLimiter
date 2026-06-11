@@ -1,0 +1,60 @@
+# Whether the spawner output limit module is enabled.
+enabled: true
+
+# Default resource settings for all spawners.
+default:
+  # Resource amount given to a newly placed or newly discovered spawner.
+  initial-resource: 500
+
+  # Maximum resource this spawner can regenerate to.
+  max-resource: 1000
+
+  # Amount of resource restored each regeneration cycle.
+  regen-amount: 4
+
+  # Seconds between each regeneration cycle.
+  regen-interval-seconds: 60
+
+# Per-entity overrides.
+# Entity names must use Bukkit EntityType names, such as ZOMBIE, SKELETON, CREEPER.
+per-entity:
+  ZOMBIE:
+    initial-resource: 800
+    max-resource: 2000
+    regen-amount: 10
+    regen-interval-seconds: 90
+
+  SKELETON:
+    initial-resource: 500
+    max-resource: 1000
+    regen-amount: 4
+    regen-interval-seconds: 60
+
+cleanup:
+  # Whether full spawner records should be removed from memory and storage cleanup.
+  # Keep this false if you want full spawners to stay recorded.
+  unload-when-full: false
+
+  # Seconds before an inactive spawner record can be removed from memory.
+  inactive-ttl-seconds: 1800
+
+storage:
+  # Size of each region in chunks.
+  # Spawner records are tracked individually, but saved into regional files.
+  region-size-chunks: 32
+
+  # Whether empty saved regions should be unloaded from memory after saving.
+  unload-empty-regions-after-save: true
+
+  # Maximum number of regions kept in memory.
+  # Set to 0 to disable this limit.
+  max-loaded-regions: 128
+
+  # Whether clean inactive regions should be unloaded from memory.
+  unload-inactive-loaded-regions: true
+
+  # Seconds before a clean loaded region is considered inactive.
+  loaded-region-inactive-ttl-seconds: 900
+
+  # Maximum number of regions that can be unloaded during one cleanup pass.
+  max-region-unloads-per-cleanup: 8

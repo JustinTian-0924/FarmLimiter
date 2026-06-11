@@ -4,6 +4,10 @@ import basementhost.randomchad.fish.FishManager;
 import basementhost.randomchad.natural.NaturalSpawnManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
+import org.bukkit.Location;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.CreatureSpawner;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -80,6 +84,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				sendHelp(sender);
 				return true;
 
+			case "spawnercheck":
+				handleSpawnerCheck(sender);
+				return true;
+
 			default:
 				sender.sendMessage(lang("command.unknown-command", Map.of(
 						"label", label
@@ -102,6 +110,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		fishManager.load();
 		naturalSpawnManager.load();
+		plugin.getSpawnerManager().load();
 
 		sender.sendMessage(lang("command.reload-success"));
 	}
@@ -256,6 +265,60 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("debug.usage"));
 	}
 
+	private void handleSpawnerCheck(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		if (!(sender instanceof Player player)) {
+			sender.sendMessage(lang("command.player-only"));
+			return;
+		}
+
+		Block targetBlock = player.getTargetBlockExact(10);
+
+		if (targetBlock == null) {
+			player.sendMessage(Component.text("No block found within 10 blocks."));
+			return;
+		}
+
+		BlockState blockState = targetBlock.getState();
+
+		if (!(blockState instanceof CreatureSpawner spawner)) {
+			player.sendMessage(Component.text("The block you are looking at is not a spawner."));
+			return;
+		}
+
+		Location location = spawner.getLocation();
+		EntityType entityType = spawner.getSpawnedType();
+		String entityTypeName = entityType.name();
+
+		int currentResource = plugin.getSpawnerManager().getRemainingResource(location, entityType);
+		int initialResource = plugin.getSpawnerManager().getInitialResource(entityTypeName);
+		int maxResource = plugin.getSpawnerManager().getMaxResource(entityTypeName);
+		int regenAmount = plugin.getSpawnerManager().getRegenAmount(entityTypeName);
+		int regenIntervalSeconds = plugin.getSpawnerManager().getRegenIntervalSeconds(entityTypeName);
+
+		player.sendMessage(Component.text("Spawner check:"));
+		player.sendMessage(Component.text("Enabled: " + plugin.getSpawnerManager().isEnabled()));
+		player.sendMessage(Component.text("World: " + location.getWorld().getName()));
+		player.sendMessage(Component.text("Location: X=" + location.getBlockX() + ", Y=" + location.getBlockY() + ", Z=" + location.getBlockZ()));
+		player.sendMessage(Component.text("Entity: " + entityTypeName));
+		player.sendMessage(Component.text("Resource: " + currentResource + " / " + maxResource));
+		player.sendMessage(Component.text("Initial resource: " + initialResource));
+		player.sendMessage(Component.text("Regen: +" + regenAmount + " every " + regenIntervalSeconds + " seconds"));
+		player.sendMessage(Component.text("Tracked spawners: " + plugin.getSpawnerManager().getTrackedSpawnerCount()));
+
+		player.sendMessage(Component.text("Spawner settings:"));
+		player.sendMessage(Component.text("Required player range: " + spawner.getRequiredPlayerRange()));
+		player.sendMessage(Component.text("Spawn range: " + spawner.getSpawnRange()));
+		player.sendMessage(Component.text("Spawn count: " + spawner.getSpawnCount()));
+		player.sendMessage(Component.text("Min delay: " + spawner.getMinSpawnDelay()));
+		player.sendMessage(Component.text("Max delay: " + spawner.getMaxSpawnDelay()));
+		player.sendMessage(Component.text("Current delay: " + spawner.getDelay()));
+	}
+
 	private void handleStats(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
 			sender.sendMessage(lang("command.no-permission"));
@@ -350,6 +413,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("help.fish"));
 		sender.sendMessage(lang("help.natural"));
 		sender.sendMessage(lang("help.natural-entity"));
+		sender.sendMessage(lang("help.spawnercheck"));
 		sender.sendMessage(lang("help.debug"));
 		sender.sendMessage(lang("help.stats"));
 		sender.sendMessage(lang("help.cleanup"));
@@ -373,6 +437,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("debug");
 			suggestions.add("stats");
 			suggestions.add("cleanup");
+			suggestions.add("spawnercheck");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");

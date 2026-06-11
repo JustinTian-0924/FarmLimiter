@@ -64,3 +64,4 @@ help:
   cleanup: "&e/farmlimiter cleanup &7- Manually cleanup unused data"
   save: "&e/farmlimiter save &7- Save plugin data asynchronously"
   reload: "&e/farmlimiter reload &7- Reload config and data"
+  spawnercheck: "&e/farmlimiter spawnercheck &7- Check the spawner you are looking at"

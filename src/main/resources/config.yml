@@ -3,7 +3,7 @@
 # Available by default:
 # - en_us
 # - zh_cn
-language: zh_cn
+language: en_us
 
 data:
   # Seconds between each automatic async data save.

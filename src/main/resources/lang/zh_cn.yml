@@ -64,3 +64,4 @@ help:
   cleanup: "&e/farmlimiter cleanup &7- 手动清理无用数据"
   save: "&e/farmlimiter save &7- 异步保存插件数据"
   reload: "&e/farmlimiter reload &7- 重载配置和数据"
+  spawnercheck: "&e/farmlimiter spawnercheck &7- 查看准星指向的刷怪笼信息"

@@ -5,6 +5,8 @@ import basementhost.randomchad.fish.FishManager;
 import basementhost.randomchad.lang.LangManager;
 import basementhost.randomchad.natural.NaturalSpawnListener;
 import basementhost.randomchad.natural.NaturalSpawnManager;
+import basementhost.randomchad.spawner.SpawnerListener;
+import basementhost.randomchad.spawner.SpawnerManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -13,6 +15,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 	private FishManager fishManager;
 	private NaturalSpawnManager naturalSpawnManager;
+	private SpawnerManager spawnerManager;
 	private LangManager langManager;
 
 	private int saveTaskId = -1;
@@ -28,6 +31,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		this.naturalSpawnManager = new NaturalSpawnManager(this);
 		this.naturalSpawnManager.load();
 
+		this.spawnerManager = new SpawnerManager(this);
+		this.spawnerManager.load();
+
 		saveDefaultConfig();
 		langManager = new LangManager(this);
 		langManager.load();
@@ -39,6 +45,11 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 		Bukkit.getPluginManager().registerEvents(
 				new NaturalSpawnListener(naturalSpawnManager),
+				this
+		);
+
+		Bukkit.getPluginManager().registerEvents(
+				new SpawnerListener(spawnerManager),
 				this
 		);
 
@@ -82,6 +93,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				() -> {
 					fishManager.cleanup();
 					naturalSpawnManager.cleanup();
+					spawnerManager.cleanup();
 				},
 				cleanupIntervalTicks,
 				cleanupIntervalTicks
@@ -112,5 +124,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 	public LangManager getLangManager() {
 		return langManager;
+	}
+
+	public SpawnerManager getSpawnerManager() {
+		return spawnerManager;
 	}
 }
