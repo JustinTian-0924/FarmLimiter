@@ -1,5 +1,13 @@
+# Plugin language.
+#
+# Available by default:
+# - en_us
+# - zh_cn
+language: zh_cn
+
 data:
-  # How long for auto-data save
+  # Seconds between each automatic async data save.
   save-interval-seconds: 1800
-  # How often to clean useless cached data
+
+  # Seconds between each automatic cleanup task.
   cleanup-interval-seconds: 300

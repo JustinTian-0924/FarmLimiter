@@ -1,0 +1,66 @@
+command:
+  no-permission: "&cYou do not have permission to use this command."
+  player-only: "&cThis command can only be used by a player."
+  unknown-command: "&cUnknown command. Use /{label} help."
+  reload-success: "&aFarmLimiter config and data reloaded."
+  save-started: "&aFarmLimiter async data save started."
+  cleanup-started-save: "&7Data save has been started asynchronously."
+
+fish:
+  actionbar-depleted: "&cThe fishponds here have dried up. Please wait a while."
+  header: "&aCurrent chunk fishing resource:"
+  world: "&7World: &e{world}"
+  chunk: "&7Chunk X: &e{x}&7, Z: &e{z}"
+  amount: "&7Fish: &e{current}&7 / &e{max}"
+  regen: "&7Regen: &e+{amount}&7 every &e{seconds}&7 seconds"
+
+natural:
+  header: "&aCurrent chunk natural spawn resource:"
+  world: "&7World: &e{world}"
+  chunk: "&7Chunk X: &e{x}&7, Z: &e{z}"
+  total-resource: "&7Total Resource: &e{current}&7 / &e{max}"
+  total-regen: "&7Total Regen: &e+{amount}&7 every &e{seconds}&7 seconds"
+  unknown-entity: "&cUnknown entity type: &e{entity}"
+  no-entity-limit: "&e{entity}&c does not have a separate limit in modules/natural-spawn-rate-limit.yml."
+  entity-resource: "&7{entity} Resource: &e{current}&7 / &e{max}"
+  entity-regen: "&7{entity} Regen: &e+{amount}&7 every &e{seconds}&7 seconds"
+
+debug:
+  header: "&aFarmLimiter natural spawn debug status:"
+  enabled: "&7Debug enabled: &e{value}"
+  log-all: "&7Log all creature spawns: &e{value}"
+  usage-short: "&7Use /fl debug on or /fl debug off"
+  enabled-message: "&aNatural spawn debug enabled."
+  spam-warning: "&eWarning: this may spam console when many mobs spawn."
+  disabled-message: "&aNatural spawn debug disabled."
+  usage: "&cUsage: /fl debug <on|off|status>"
+
+stats:
+  header: "&aFarmLimiter stats:"
+  fish-tracked-chunks: "&7Fish_Depletion tracked chunks: &e{value}"
+  fish-loaded-regions: "&7Fish_Depletion loaded regions: &e{loaded}&7 / &e{max}"
+  fish-dirty-regions: "&7Fish_Depletion dirty regions: &e{value}"
+  fish-async-running: "&7Fish_Depletion async save running: &e{value}"
+  fish-async-queued: "&7Fish_Depletion async save queued: &e{value}"
+  natural-tracked-chunks: "&7Natural_Spawn_Rate_Limit tracked chunks: &e{value}"
+  natural-loaded-regions: "&7Natural_Spawn_Rate_Limit loaded regions: &e{loaded}&7 / &e{max}"
+  natural-dirty-regions: "&7Natural_Spawn_Rate_Limit dirty regions: &e{value}"
+  natural-async-running: "&7Natural_Spawn_Rate_Limit async save running: &e{value}"
+  natural-async-queued: "&7Natural_Spawn_Rate_Limit async save queued: &e{value}"
+
+cleanup:
+  header: "&aFarmLimiter cleanup completed:"
+  fish-result: "&7Fish_Depletion: &e{before}&7 -> &e{after}&7 removed &e{removed}"
+  natural-result: "&7Natural_Spawn_Rate_Limit: &e{before}&7 -> &e{after}&7 removed &e{removed}"
+
+help:
+  header: "&aFarmLimiter commands:"
+  help: "&e/farmlimiter help &7- Show help"
+  fish: "&e/farmlimiter fish &7- Show current chunk fish amount"
+  natural: "&e/farmlimiter natural &7- Show current chunk natural spawn resource"
+  natural-entity: "&e/farmlimiter natural <entity> &7- Show current chunk entity natural spawn resource"
+  debug: "&e/farmlimiter debug <on|off|status> &7- Toggle natural spawn debug"
+  stats: "&e/farmlimiter stats &7- Show tracked chunk stats"
+  cleanup: "&e/farmlimiter cleanup &7- Manually cleanup unused data"
+  save: "&e/farmlimiter save &7- Save plugin data asynchronously"
+  reload: "&e/farmlimiter reload &7- Reload config and data"

@@ -2,6 +2,7 @@ package basementhost.randomchad;
 
 import basementhost.randomchad.fish.FishListener;
 import basementhost.randomchad.fish.FishManager;
+import basementhost.randomchad.lang.LangManager;
 import basementhost.randomchad.natural.NaturalSpawnListener;
 import basementhost.randomchad.natural.NaturalSpawnManager;
 import org.bukkit.Bukkit;
@@ -12,6 +13,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 	private FishManager fishManager;
 	private NaturalSpawnManager naturalSpawnManager;
+	private LangManager langManager;
 
 	private int saveTaskId = -1;
 	private int cleanupTaskId = -1;
@@ -26,8 +28,12 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		this.naturalSpawnManager = new NaturalSpawnManager(this);
 		this.naturalSpawnManager.load();
 
+		saveDefaultConfig();
+		langManager = new LangManager(this);
+		langManager.load();
+
 		Bukkit.getPluginManager().registerEvents(
-				new FishListener(fishManager),
+				new FishListener(this, fishManager),
 				this
 		);
 
@@ -92,7 +98,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			Bukkit.getScheduler().cancelTask(saveTaskId);
 		}
 
-		// Prevent asyc when closing up the server
+		// Prevent async saving while the server is shutting down.
 		if (fishManager != null) {
 			fishManager.save();
 		}
@@ -102,5 +108,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		}
 
 		getLogger().info("FarmLimiter Plugin Disabled!");
+	}
+
+	public LangManager getLangManager() {
+		return langManager;
 	}
 }

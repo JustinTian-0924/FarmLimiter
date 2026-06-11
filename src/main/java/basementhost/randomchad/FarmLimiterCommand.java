@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
@@ -80,14 +81,16 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				return true;
 
 			default:
-				sender.sendMessage(Component.text("Unknown command. Use /" + label + " help"));
+				sender.sendMessage(lang("command.unknown-command", Map.of(
+						"label", label
+				)));
 				return true;
 		}
 	}
 
 	private void handleReload(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
 
@@ -95,21 +98,22 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		naturalSpawnManager.save();
 
 		plugin.reloadConfig();
+		plugin.getLangManager().load();
 
 		fishManager.load();
 		naturalSpawnManager.load();
 
-		sender.sendMessage(Component.text("FarmLimiter config and data reloaded."));
+		sender.sendMessage(lang("command.reload-success"));
 	}
 
 	private void handleFish(CommandSender sender) {
 		if (!(sender instanceof Player player)) {
-			sender.sendMessage(Component.text("This command can only be used by a player."));
+			sender.sendMessage(lang("command.player-only"));
 			return;
 		}
 
 		if (!sender.hasPermission("farmlimiter.use")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
 
@@ -120,21 +124,32 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		int regenAmount = fishManager.getRegenAmount();
 		int regenIntervalSeconds = fishManager.getRegenIntervalSeconds();
 
-		player.sendMessage(Component.text("Current chunk fishing resource:"));
-		player.sendMessage(Component.text("World: " + chunk.getWorld().getName()));
-		player.sendMessage(Component.text("Chunk X: " + chunk.getX() + ", Z: " + chunk.getZ()));
-		player.sendMessage(Component.text("Fish: " + remainingFish + " / " + maxFish));
-		player.sendMessage(Component.text("Regen: +" + regenAmount + " every " + regenIntervalSeconds + " seconds"));
+		player.sendMessage(lang("fish.header"));
+		player.sendMessage(lang("fish.world", Map.of(
+				"world", chunk.getWorld().getName()
+		)));
+		player.sendMessage(lang("fish.chunk", Map.of(
+				"x", chunk.getX(),
+				"z", chunk.getZ()
+		)));
+		player.sendMessage(lang("fish.amount", Map.of(
+				"current", remainingFish,
+				"max", maxFish
+		)));
+		player.sendMessage(lang("fish.regen", Map.of(
+				"amount", regenAmount,
+				"seconds", regenIntervalSeconds
+		)));
 	}
 
 	private void handleNatural(CommandSender sender, String[] args) {
 		if (!(sender instanceof Player player)) {
-			sender.sendMessage(Component.text("This command can only be used by a player."));
+			sender.sendMessage(lang("command.player-only"));
 			return;
 		}
 
 		if (!sender.hasPermission("farmlimiter.use")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
 
@@ -145,11 +160,22 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		int regenAmount = naturalSpawnManager.getTotalRegenAmount();
 		int regenIntervalSeconds = naturalSpawnManager.getTotalRegenIntervalSeconds();
 
-		player.sendMessage(Component.text("Current chunk natural spawn resource:"));
-		player.sendMessage(Component.text("World: " + chunk.getWorld().getName()));
-		player.sendMessage(Component.text("Chunk X: " + chunk.getX() + ", Z: " + chunk.getZ()));
-		player.sendMessage(Component.text("Total Resource: " + remainingTotal + " / " + maxTotal));
-		player.sendMessage(Component.text("Total Regen: +" + regenAmount + " every " + regenIntervalSeconds + " seconds"));
+		player.sendMessage(lang("natural.header"));
+		player.sendMessage(lang("natural.world", Map.of(
+				"world", chunk.getWorld().getName()
+		)));
+		player.sendMessage(lang("natural.chunk", Map.of(
+				"x", chunk.getX(),
+				"z", chunk.getZ()
+		)));
+		player.sendMessage(lang("natural.total-resource", Map.of(
+				"current", remainingTotal,
+				"max", maxTotal
+		)));
+		player.sendMessage(lang("natural.total-regen", Map.of(
+				"amount", regenAmount,
+				"seconds", regenIntervalSeconds
+		)));
 
 		if (args.length >= 2) {
 			String entityName = args[1].toUpperCase();
@@ -159,14 +185,18 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			try {
 				entityType = EntityType.valueOf(entityName);
 			} catch (IllegalArgumentException exception) {
-				player.sendMessage(Component.text("Unknown entity type: " + entityName));
+				player.sendMessage(lang("natural.unknown-entity", Map.of(
+						"entity", entityName
+				)));
 				return;
 			}
 
 			int entityResource = naturalSpawnManager.peekRemainingEntityResource(chunk, entityType);
 
 			if (entityResource < 0) {
-				player.sendMessage(Component.text(entityName + " does not have a separate limit in modules/natural-spawn-rate-limit.yml."));
+				player.sendMessage(lang("natural.no-entity-limit", Map.of(
+						"entity", entityName
+				)));
 				return;
 			}
 
@@ -174,14 +204,22 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			int entityRegenAmount = naturalSpawnManager.getEntityRegenAmount(entityName);
 			int entityRegenIntervalSeconds = naturalSpawnManager.getEntityRegenIntervalSeconds(entityName);
 
-			player.sendMessage(Component.text(entityName + " Resource: " + entityResource + " / " + entityMax));
-			player.sendMessage(Component.text(entityName + " Regen: +" + entityRegenAmount + " every " + entityRegenIntervalSeconds + " seconds"));
+			player.sendMessage(lang("natural.entity-resource", Map.of(
+					"entity", entityName,
+					"current", entityResource,
+					"max", entityMax
+			)));
+			player.sendMessage(lang("natural.entity-regen", Map.of(
+					"entity", entityName,
+					"amount", entityRegenAmount,
+					"seconds", entityRegenIntervalSeconds
+			)));
 		}
 	}
 
 	private void handleDebug(CommandSender sender, String[] args) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
 
@@ -189,54 +227,82 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			boolean enabled = naturalSpawnManager.isDebugEnabled();
 			boolean logAll = naturalSpawnManager.shouldLogAllCreatureSpawns();
 
-			sender.sendMessage(Component.text("FarmLimiter natural spawn debug status:"));
-			sender.sendMessage(Component.text("Debug enabled: " + enabled));
-			sender.sendMessage(Component.text("Log all creature spawns: " + logAll));
-			sender.sendMessage(Component.text("Use /fl debug on or /fl debug off"));
+			sender.sendMessage(lang("debug.header"));
+			sender.sendMessage(lang("debug.enabled", Map.of(
+					"value", enabled
+			)));
+			sender.sendMessage(lang("debug.log-all", Map.of(
+					"value", logAll
+			)));
+			sender.sendMessage(lang("debug.usage-short"));
 			return;
 		}
 
 		if (args[1].equalsIgnoreCase("on")) {
 			naturalSpawnManager.setDebug(true, true);
 
-			sender.sendMessage(Component.text("Natural spawn debug enabled."));
-			sender.sendMessage(Component.text("Warning: this may spam console when many mobs spawn."));
+			sender.sendMessage(lang("debug.enabled-message"));
+			sender.sendMessage(lang("debug.spam-warning"));
 			return;
 		}
 
 		if (args[1].equalsIgnoreCase("off")) {
 			naturalSpawnManager.setDebug(false, false);
 
-			sender.sendMessage(Component.text("Natural spawn debug disabled."));
+			sender.sendMessage(lang("debug.disabled-message"));
 			return;
 		}
 
-		sender.sendMessage(Component.text("Usage: /fl debug <on|off|status>"));
+		sender.sendMessage(lang("debug.usage"));
 	}
 
 	private void handleStats(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
+
 		int fishTrackedChunks = fishManager.getTrackedChunkCount();
 		int naturalTrackedChunks = naturalSpawnManager.getTrackedChunkCount();
-		sender.sendMessage(Component.text("FarmLimiter stats:"));
-		sender.sendMessage(Component.text("Fish_Depletion tracked chunks: " + fishTrackedChunks));
-		sender.sendMessage(Component.text("Fish_Depletion loaded regions: " + fishManager.getLoadedRegionCount() + " / " + fishManager.getMaxLoadedRegions()));
-		sender.sendMessage(Component.text("Fish_Depletion dirty regions: " + fishManager.getDirtyRegionCount()));
-		sender.sendMessage(Component.text("Fish_Depletion async save running: " + fishManager.isAsyncSaveRunning()));
-		sender.sendMessage(Component.text("Fish_Depletion async save queued: " + fishManager.isAsyncSaveQueued()));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit tracked chunks: " + naturalTrackedChunks));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit loaded regions: " + naturalSpawnManager.getLoadedRegionCount() + " / " + naturalSpawnManager.getMaxLoadedRegions()));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit dirty regions: " + naturalSpawnManager.getDirtyRegionCount()));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit async save running: " + naturalSpawnManager.isAsyncSaveRunning()));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit async save queued: " + naturalSpawnManager.isAsyncSaveQueued()));
+
+		sender.sendMessage(lang("stats.header"));
+		sender.sendMessage(lang("stats.fish-tracked-chunks", Map.of(
+				"value", fishTrackedChunks
+		)));
+		sender.sendMessage(lang("stats.fish-loaded-regions", Map.of(
+				"loaded", fishManager.getLoadedRegionCount(),
+				"max", fishManager.getMaxLoadedRegions()
+		)));
+		sender.sendMessage(lang("stats.fish-dirty-regions", Map.of(
+				"value", fishManager.getDirtyRegionCount()
+		)));
+		sender.sendMessage(lang("stats.fish-async-running", Map.of(
+				"value", fishManager.isAsyncSaveRunning()
+		)));
+		sender.sendMessage(lang("stats.fish-async-queued", Map.of(
+				"value", fishManager.isAsyncSaveQueued()
+		)));
+		sender.sendMessage(lang("stats.natural-tracked-chunks", Map.of(
+				"value", naturalTrackedChunks
+		)));
+		sender.sendMessage(lang("stats.natural-loaded-regions", Map.of(
+				"loaded", naturalSpawnManager.getLoadedRegionCount(),
+				"max", naturalSpawnManager.getMaxLoadedRegions()
+		)));
+		sender.sendMessage(lang("stats.natural-dirty-regions", Map.of(
+				"value", naturalSpawnManager.getDirtyRegionCount()
+		)));
+		sender.sendMessage(lang("stats.natural-async-running", Map.of(
+				"value", naturalSpawnManager.isAsyncSaveRunning()
+		)));
+		sender.sendMessage(lang("stats.natural-async-queued", Map.of(
+				"value", naturalSpawnManager.isAsyncSaveQueued()
+		)));
 	}
 
 	private void handleCleanup(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
 
@@ -252,35 +318,43 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		fishManager.saveAsync();
 		naturalSpawnManager.saveAsync();
 
-		sender.sendMessage(Component.text("FarmLimiter cleanup completed:"));
-		sender.sendMessage(Component.text("Fish_Depletion: " + fishBefore + " -> " + fishAfter + " removed " + fishRemoved));
-		sender.sendMessage(Component.text("Natural_Spawn_Rate_Limit: " + naturalBefore + " -> " + naturalAfter + " removed " + naturalRemoved));
-		sender.sendMessage(Component.text("Data save has been started asynchronously."));
+		sender.sendMessage(lang("cleanup.header"));
+		sender.sendMessage(lang("cleanup.fish-result", Map.of(
+				"before", fishBefore,
+				"after", fishAfter,
+				"removed", fishRemoved
+		)));
+		sender.sendMessage(lang("cleanup.natural-result", Map.of(
+				"before", naturalBefore,
+				"after", naturalAfter,
+				"removed", naturalRemoved
+		)));
+		sender.sendMessage(lang("command.cleanup-started-save"));
 	}
 
 	private void handleSave(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
-			sender.sendMessage(Component.text("You do not have permission to use this command."));
+			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
 
 		fishManager.saveAsync();
 		naturalSpawnManager.saveAsync();
 
-		sender.sendMessage(Component.text("FarmLimiter async data save started."));
+		sender.sendMessage(lang("command.save-started"));
 	}
 
 	private void sendHelp(CommandSender sender) {
-		sender.sendMessage(Component.text("FarmLimiter commands:"));
-		sender.sendMessage(Component.text("/farmlimiter help - Show help"));
-		sender.sendMessage(Component.text("/farmlimiter fish - Show current chunk fish amount"));
-		sender.sendMessage(Component.text("/farmlimiter natural - Show current chunk natural spawn resource"));
-		sender.sendMessage(Component.text("/farmlimiter natural <entity> - Show current chunk entity natural spawn resource"));
-		sender.sendMessage(Component.text("/farmlimiter debug <on|off|status> - Toggle natural spawn debug"));
-		sender.sendMessage(Component.text("/farmlimiter stats - Show tracked chunk stats"));
-		sender.sendMessage(Component.text("/farmlimiter cleanup - Manually cleanup unused data"));
-		sender.sendMessage(Component.text("/farmlimiter save - Save plugin data asynchronously"));
-		sender.sendMessage(Component.text("/farmlimiter reload - Reload config and data"));
+		sender.sendMessage(lang("help.header"));
+		sender.sendMessage(lang("help.help"));
+		sender.sendMessage(lang("help.fish"));
+		sender.sendMessage(lang("help.natural"));
+		sender.sendMessage(lang("help.natural-entity"));
+		sender.sendMessage(lang("help.debug"));
+		sender.sendMessage(lang("help.stats"));
+		sender.sendMessage(lang("help.cleanup"));
+		sender.sendMessage(lang("help.save"));
+		sender.sendMessage(lang("help.reload"));
 	}
 
 	@Override
@@ -357,5 +431,13 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		}
 
 		return new ArrayList<>();
+	}
+
+	private Component lang(String path) {
+		return Component.text(plugin.getLangManager().get(path));
+	}
+
+	private Component lang(String path, Map<String, Object> placeholders) {
+		return Component.text(plugin.getLangManager().get(path, placeholders));
 	}
 }

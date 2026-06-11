@@ -1,5 +1,6 @@
 package basementhost.randomchad.fish;
 
+import basementhost.randomchad.FarmLimiterPlugin;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
 import org.bukkit.entity.Entity;
@@ -11,9 +12,11 @@ import org.bukkit.event.player.PlayerFishEvent;
 
 public class FishListener implements Listener {
 
+	private final FarmLimiterPlugin plugin;
 	private final FishManager fishManager;
 
-	public FishListener(FishManager fishManager) {
+	public FishListener(FarmLimiterPlugin plugin, FishManager fishManager) {
+		this.plugin = plugin;
 		this.fishManager = fishManager;
 	}
 
@@ -28,7 +31,6 @@ public class FishListener implements Listener {
 		}
 
 		Player player = event.getPlayer();
-
 		Chunk fishingChunk = event.getHook().getLocation().getChunk();
 
 		boolean success = fishManager.tryConsumeFish(fishingChunk);
@@ -41,12 +43,13 @@ public class FishListener implements Listener {
 		event.setExpToDrop(0);
 
 		Entity caught = event.getCaught();
+
 		if (caught != null) {
 			caught.remove();
 		}
 
 		if (fishManager.shouldNotifyPlayer()) {
-			player.sendActionBar(Component.text("The fishponds here have dried up, please wait a while till fish here again"));
+			player.sendActionBar(Component.text(plugin.getLangManager().get("fish.actionbar-depleted")));
 		}
 	}
 }

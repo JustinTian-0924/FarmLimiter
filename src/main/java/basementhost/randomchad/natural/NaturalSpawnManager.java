@@ -17,7 +17,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NaturalSpawnManager {
 
@@ -315,7 +314,7 @@ public class NaturalSpawnManager {
 				plugin,
 				regionConfig,
 				regionFile,
-				"An error occurred when saving fish region data file"
+				"An error occurred when saving natural spawn region data file"
 		);
 	}
 
@@ -464,25 +463,6 @@ public class NaturalSpawnManager {
 		);
 	}
 
-	private String findOldestCleanLoadedRegionId() {
-		String oldestRegionId = null;
-		long oldestAccessTime = Long.MAX_VALUE;
-
-		for (String regionId : regionState.getLoadedRegionIdsSnapshot()) {
-			if (regionState.isDirty(regionId)) {
-				continue;
-			}
-
-			long lastAccessTime = regionState.getLastAccessTime(regionId, 0L);
-
-			if (lastAccessTime < oldestAccessTime) {
-				oldestAccessTime = lastAccessTime;
-				oldestRegionId = regionId;
-			}
-		}
-
-		return oldestRegionId;
-	}
 
 	private void unloadRegionFromMemory(String regionId) {
 		Set<String> chunkKeys = new HashSet<>();

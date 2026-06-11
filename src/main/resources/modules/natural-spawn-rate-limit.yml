@@ -1,57 +1,39 @@
+# Whether the natural spawn rate limit module is enabled.
 enabled: true
-storage:
-  # How many chunks wide/tall per region data file.
-  # 32 means one file stores 32x32 chunks.
-  region-size-chunks: 32
-  # If a loaded region has no tracked chunks and is already saved,
-  # remove it from memory.
-  unload-empty-regions-after-save: true
-  # Maximum loaded natural-spawn region files kept in memory.
-  # Set to 0 or negative to disable this limit.
-  max-loaded-regions: 128
-  # Allow unloading loaded regions that are already saved and inactive.
-  unload-inactive-loaded-regions: true
-  # A clean loaded region can be unloaded after no access for this many seconds.
-  # 900 = 15 minutes
-  loaded-region-inactive-ttl-seconds: 900
-  # To avoid one cleanup causing a big spike,
-  # unload at most this many loaded regions per cleanup/save cycle.
-  max-region-unloads-per-cleanup: 8
-cleanup:
-  # If total resource and all recorded entity resources are full, remove the chunk data
-  unload-when-full: true
-  # If a chunk has no plugin activity for this many seconds, remove its data
-  inactive-ttl-seconds: 1800
 debug:
+  # Whether natural spawn debug logging is enabled.
   enabled: false
+  # Whether all creature spawn events should be logged.
+  # This can spam the console on busy servers.
   log-all-creature-spawns: false
+  # Whether ignored spawn reasons should be logged.
   log-ignored-spawn-reasons: true
+  # Whether successful resource consumption should be logged.
   log-consume: true
+  # Whether cancelled natural spawns should be logged.
   log-cancel: true
-
-# Which spawn reasons will be limited by this module.
-# NATURAL = normal natural mob spawning
-# POTION_EFFECT = mobs spawned by potion effects, such as oozing / infestation
-# RAID = mobs spawned as part of a raid
+# Spawn reasons affected by this module.
+# If this list is empty, only NATURAL spawns are limited.
 limited-spawn-reasons:
   - NATURAL
-  - POTION_EFFECT
-  - RAID
-  - VILLAGE_DEFENSE # Villager Iron Farm
-
-# Total natural spawn resource for each chunk
 total:
-  max-resource: 2500
-  regen-interval-seconds: 30
-  regen-amount: 40
+  # Maximum total spawn resource stored in each chunk.
+  max-resource: 2000
+  # Amount of total spawn resource restored each regeneration cycle.
+  regen-amount: 128
+  # Seconds between each total resource regeneration cycle.
+  regen-interval-seconds: 120
 
 # Per-entity natural spawn resource.
 # If an entity type is not listed here, it only uses the total resource.
 per-entity:
   ZOMBIE:
-    max-resource: 120
-    regen-interval-seconds: 120
+    # Maximum spawn resource for this entity in each chunk.
+    max-resource: 80
+    # Amount of entity resource restored each regeneration cycle.
     regen-amount: 8
+    # Seconds between each entity resource regeneration cycle.
+    regen-interval-seconds: 600
 
   SKELETON:
     max-resource: 120
@@ -162,3 +144,29 @@ per-entity:
     max-resource: 12
     regen-interval-seconds: 120
     regen-amount: 2
+
+  SHULKER:
+    max-resource: 16
+    regen-interval-seconds: 120
+    regen-amount: 2
+
+cleanup:
+  # Whether full spawn pools should be removed from memory and storage cleanup.
+  unload-when-full: true
+  # Seconds before an inactive chunk record can be removed.
+  inactive-ttl-seconds: 1800
+storage:
+  # Size of each region in chunks.
+  # Larger values create fewer files, but each file contains more chunk data.
+  region-size-chunks: 32
+  # Whether empty saved regions should be unloaded from memory after saving.
+  unload-empty-regions-after-save: true
+  # Maximum number of regions kept in memory.
+  # Set to 0 to disable this limit.
+  max-loaded-regions: 128
+  # Whether clean inactive regions should be unloaded from memory.
+  unload-inactive-loaded-regions: true
+  # Seconds before a clean loaded region is considered inactive.
+  loaded-region-inactive-ttl-seconds: 900
+  # Maximum number of regions that can be unloaded during one cleanup pass.
+  max-region-unloads-per-cleanup: 8
