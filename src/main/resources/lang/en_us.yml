@@ -47,11 +47,17 @@ stats:
   natural-dirty-regions: "&7Natural_Spawn_Rate_Limit dirty regions: &e{value}"
   natural-async-running: "&7Natural_Spawn_Rate_Limit async save running: &e{value}"
   natural-async-queued: "&7Natural_Spawn_Rate_Limit async save queued: &e{value}"
+  spawner-tracked-spawners: "&7Spawner_Output_Limit tracked spawners: &f{value}"
+  spawner-loaded-regions: "&7Spawner_Output_Limit loaded regions: &f{loaded} / {max}"
+  spawner-dirty-regions: "&7Spawner_Output_Limit dirty regions: &f{value}"
+  spawner-async-running: "&7Spawner_Output_Limit async save running: &f{value}"
+  spawner-async-queued: "&7Spawner_Output_Limit async save queued: &f{value}"
 
 cleanup:
   header: "&aFarmLimiter cleanup completed:"
   fish-result: "&7Fish_Depletion: &e{before}&7 -> &e{after}&7 removed &e{removed}"
   natural-result: "&7Natural_Spawn_Rate_Limit: &e{before}&7 -> &e{after}&7 removed &e{removed}"
+  spawner-result: "&7Spawner_Output_Limit: &f{before} -> {after} &7removed &f{removed}"
 
 help:
   header: "&aFarmLimiter commands:"

@@ -47,11 +47,17 @@ stats:
   natural-dirty-regions: "&7Natural_Spawn_Rate_Limit 待保存区域：&e{value}"
   natural-async-running: "&7Natural_Spawn_Rate_Limit 异步保存运行中：&e{value}"
   natural-async-queued: "&7Natural_Spawn_Rate_Limit 异步保存已排队：&e{value}"
+  spawner-tracked-spawners: "&7刷怪笼产出限制 已追踪刷怪笼: &f{value}"
+  spawner-loaded-regions: "&7刷怪笼产出限制 已加载区域: &f{loaded} / {max}"
+  spawner-dirty-regions: "&7刷怪笼产出限制 待保存区域: &f{value}"
+  spawner-async-running: "&7刷怪笼产出限制 异步保存运行中: &f{value}"
+  spawner-async-queued: "&7刷怪笼产出限制 异步保存已排队: &f{value}"
 
 cleanup:
   header: "&aFarmLimiter 清理完成："
   fish-result: "&7Fish_Depletion：&e{before}&7 -> &e{after}&7，移除 &e{removed}"
   natural-result: "&7Natural_Spawn_Rate_Limit：&e{before}&7 -> &e{after}&7，移除 &e{removed}"
+  spawner-result: "&7刷怪笼产出限制: &f{before} -> {after} &7已清理 &f{removed}"
 
 help:
   header: "&aFarmLimiter 命令："

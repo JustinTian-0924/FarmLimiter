@@ -104,6 +104,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		fishManager.save();
 		naturalSpawnManager.save();
+		plugin.getSpawnerManager().save();
 
 		plugin.reloadConfig();
 		plugin.getLangManager().load();
@@ -327,6 +328,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		int fishTrackedChunks = fishManager.getTrackedChunkCount();
 		int naturalTrackedChunks = naturalSpawnManager.getTrackedChunkCount();
+		int spawnerTrackedSpawners = plugin.getSpawnerManager().getTrackedSpawnerCount();
 
 		sender.sendMessage(lang("stats.header"));
 		sender.sendMessage(lang("stats.fish-tracked-chunks", Map.of(
@@ -361,6 +363,23 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("stats.natural-async-queued", Map.of(
 				"value", naturalSpawnManager.isAsyncSaveQueued()
 		)));
+		sender.sendMessage(lang("stats.spawner-tracked-spawners", Map.of(
+				"value", spawnerTrackedSpawners
+		)));
+		sender.sendMessage(lang("stats.spawner-loaded-regions", Map.of(
+				"loaded", plugin.getSpawnerManager().getLoadedRegionCount(),
+				"max", plugin.getSpawnerManager().getMaxLoadedRegions()
+		)));
+		sender.sendMessage(lang("stats.spawner-dirty-regions", Map.of(
+				"value", plugin.getSpawnerManager().getDirtyRegionCount()
+		)));
+		sender.sendMessage(lang("stats.spawner-async-running", Map.of(
+				"value", plugin.getSpawnerManager().isAsyncSaveRunning()
+		)));
+		sender.sendMessage(lang("stats.spawner-async-queued", Map.of(
+				"value", plugin.getSpawnerManager().isAsyncSaveQueued()
+		)));
+
 	}
 
 	private void handleCleanup(CommandSender sender) {
@@ -371,14 +390,18 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		int fishBefore = fishManager.getTrackedChunkCount();
 		int naturalBefore = naturalSpawnManager.getTrackedChunkCount();
+		int spawnerBefore = plugin.getSpawnerManager().getTrackedSpawnerCount();
 
 		int fishRemoved = fishManager.cleanupAndGetRemovedCount();
 		int naturalRemoved = naturalSpawnManager.cleanupAndGetRemovedCount();
+		int spawnerRemoved = plugin.getSpawnerManager().cleanupAndGetRemovedCount();
+
 		plugin.getSpawnerManager().cleanupAndGetRemovedCount();
 		plugin.getSpawnerManager().saveAsync();
 
 		int fishAfter = fishManager.getTrackedChunkCount();
 		int naturalAfter = naturalSpawnManager.getTrackedChunkCount();
+		int spawnerAfter = plugin.getSpawnerManager().getTrackedSpawnerCount();
 
 		fishManager.saveAsync();
 		naturalSpawnManager.saveAsync();
@@ -395,6 +418,11 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				"after", naturalAfter,
 				"removed", naturalRemoved
 		)));
+		sender.sendMessage(lang("cleanup.spawner-result", Map.of(
+				"before", spawnerBefore,
+				"after", spawnerAfter,
+				"removed", spawnerRemoved
+		)));
 		sender.sendMessage(lang("command.cleanup-started-save"));
 	}
 
@@ -403,10 +431,9 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
-
 		fishManager.saveAsync();
 		naturalSpawnManager.saveAsync();
-
+		plugin.getSpawnerManager().saveAsync();
 		sender.sendMessage(lang("command.save-started"));
 	}
 
