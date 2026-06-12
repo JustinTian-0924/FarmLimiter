@@ -1,24 +1,35 @@
 package basementhost.randomchad.spawner;
 
-import basementhost.randomchad.storage.ModuleConfigLoader;
+import basementhost.randomchad.storage.*;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 
 public class SpawnerManager {
 
 	private final JavaPlugin plugin;
 
 	private final Map<String, SpawnerPool> spawnerPools = new HashMap<>();
+	private final RegionLoadState regionState = new RegionLoadState();
+	private final AsyncSaveGuard asyncSaveGuard = new AsyncSaveGuard();
 
 	private File configFile;
 	private YamlConfiguration moduleConfig;
+	private RegionStorageConfig storageConfig;
+
+	private File dataRootFolder;
+
+	private final Object dataSaveLock = new Object();
 
 	public SpawnerManager(JavaPlugin plugin) {
 		this.plugin = plugin;
@@ -26,10 +37,13 @@ public class SpawnerManager {
 
 	public void load() {
 		loadModuleConfig();
+		loadDataRoot();
 
 		spawnerPools.clear();
+		regionState.clear();
+		asyncSaveGuard.clear();
 
-		plugin.getLogger().info("Spawner output limit module initialized.");
+		plugin.getLogger().info("Spawner output limit regional data storage initialized.");
 	}
 
 	private void loadModuleConfig() {
@@ -37,23 +51,91 @@ public class SpawnerManager {
 
 		configFile = configLoader.getConfigFile();
 		moduleConfig = configLoader.getConfig();
+		storageConfig = new RegionStorageConfig(moduleConfig);
+	}
+
+	private void loadDataRoot() {
+		dataRootFolder = DataRootLoader.load(plugin, "spawner-output-limit");
 	}
 
 	public boolean isEnabled() {
 		return moduleConfig.getBoolean("enabled", true);
 	}
 
+	private void ensureRegionLoaded(Location location) {
+		String regionId = getRegionId(location);
+
+		if (regionState.isLoaded(regionId)) {
+			regionState.touch(regionId);
+			return;
+		}
+
+		File regionFile = getRegionFile(regionId);
+
+		if (!regionFile.exists()) {
+			regionState.markLoaded(regionId);
+			enforceLoadedRegionLimit();
+			return;
+		}
+
+		YamlConfiguration regionConfig = YamlConfiguration.loadConfiguration(regionFile);
+		ConfigurationSection spawnersSection = regionConfig.getConfigurationSection("spawners");
+
+		if (spawnersSection == null) {
+			regionState.markLoaded(regionId);
+			enforceLoadedRegionLimit();
+			return;
+		}
+
+		long now = System.currentTimeMillis();
+
+		for (String spawnerKey : spawnersSection.getKeys(false)) {
+			String basePath = "spawners." + spawnerKey;
+
+			String entityTypeName = regionConfig.getString(basePath + ".entity-type", "UNKNOWN");
+			int resource = regionConfig.getInt(basePath + ".resource", getInitialResource(entityTypeName));
+			long lastRegenTime = regionConfig.getLong(basePath + ".last-regen-time", now);
+			long lastAccessTime = regionConfig.getLong(basePath + ".last-access-time", now);
+
+			SpawnerPool pool = new SpawnerPool(
+					regionId,
+					entityTypeName,
+					resource,
+					lastRegenTime,
+					lastAccessTime
+			);
+
+			applyRegen(pool);
+
+			if (shouldRemovePool(pool, now)) {
+				markRegionDirty(regionId);
+				continue;
+			}
+
+			spawnerPools.put(spawnerKey, pool);
+		}
+
+		regionState.markLoaded(regionId);
+		enforceLoadedRegionLimit();
+	}
+
 	public boolean tryConsumeSpawnerResource(Location location, EntityType entityType) {
+		ensureRegionLoaded(location);
+
 		String spawnerKey = getSpawnerKey(location);
+		String regionId = getRegionId(location);
 		String entityTypeName = entityType.name();
 
 		SpawnerPool pool = spawnerPools.computeIfAbsent(
 				spawnerKey,
-				key -> createSpawnerPool(entityTypeName)
+				key -> createSpawnerPool(regionId, entityTypeName)
 		);
 
 		pool.entityTypeName = entityTypeName;
 		pool.lastAccessTime = System.currentTimeMillis();
+
+		touchRegion(regionId);
+		markRegionDirty(regionId);
 
 		applyRegen(pool);
 
@@ -63,20 +145,28 @@ public class SpawnerManager {
 
 		pool.resource--;
 
+		markRegionDirty(regionId);
+
 		return true;
 	}
 
 	public int getRemainingResource(Location location, EntityType entityType) {
+		ensureRegionLoaded(location);
+
 		String spawnerKey = getSpawnerKey(location);
+		String regionId = getRegionId(location);
 		String entityTypeName = entityType.name();
 
 		SpawnerPool pool = spawnerPools.computeIfAbsent(
 				spawnerKey,
-				key -> createSpawnerPool(entityTypeName)
+				key -> createSpawnerPool(regionId, entityTypeName)
 		);
 
 		pool.entityTypeName = entityTypeName;
 		pool.lastAccessTime = System.currentTimeMillis();
+
+		touchRegion(regionId);
+		markRegionDirty(regionId);
 
 		applyRegen(pool);
 
@@ -84,33 +174,266 @@ public class SpawnerManager {
 	}
 
 	public void removeSpawner(Location location) {
-		spawnerPools.remove(getSpawnerKey(location));
+		String spawnerKey = getSpawnerKey(location);
+		String regionId = getRegionId(location);
+
+		ensureRegionLoaded(location);
+
+		if (spawnerPools.remove(spawnerKey) != null) {
+			markRegionDirty(regionId);
+		}
 	}
 
 	public void cleanup() {
+		int removed = cleanupAndGetRemovedCount();
+
+		if (removed > 0) {
+			plugin.getLogger().info("Spawner_Output_Limit cleanup removed " + removed + " spawner records. Remaining tracked spawners: " + getTrackedSpawnerCount());
+		}
+
+		int unloadedRegions = enforceLoadedRegionLimit();
+
+		RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Spawner_Output_Limit", unloadedRegions);
+	}
+
+	public int cleanupAndGetRemovedCount() {
 		long now = System.currentTimeMillis();
+
+		int before = spawnerPools.size();
 
 		Iterator<Map.Entry<String, SpawnerPool>> iterator = spawnerPools.entrySet().iterator();
 
 		while (iterator.hasNext()) {
-			SpawnerPool pool = iterator.next().getValue();
+			Map.Entry<String, SpawnerPool> entry = iterator.next();
+			SpawnerPool pool = entry.getValue();
+
+			int beforeResource = pool.resource;
+			long beforeRegenTime = pool.lastRegenTime;
 
 			applyRegen(pool);
 
+			if (beforeResource != pool.resource || beforeRegenTime != pool.lastRegenTime) {
+				markRegionDirty(pool.regionId);
+			}
+
 			if (shouldRemovePool(pool, now)) {
 				iterator.remove();
+				markRegionDirty(pool.regionId);
 			}
 		}
+
+		return before - spawnerPools.size();
+	}
+
+	public void save() {
+		cleanup();
+
+		Map<String, Long> regionsToSave = regionState.snapshotDirtyVersions();
+
+		if (regionsToSave.isEmpty()) {
+			int unloadedRegions = enforceLoadedRegionLimit();
+
+			RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Spawner_Output_Limit", unloadedRegions);
+
+			return;
+		}
+
+		Map<String, RegionSnapshot> snapshots = createRegionSnapshots(regionsToSave.keySet());
+
+		RegionSnapshotWriteHelper.writeSnapshots(
+				dataSaveLock,
+				snapshots,
+				this::writeRegionSnapshot
+		);
+
+		RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
+
+		int unloadedRegions = enforceLoadedRegionLimit();
+
+		RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Spawner_Output_Limit", unloadedRegions);
+	}
+
+	public void saveAsync() {
+		if (dataRootFolder == null) {
+			return;
+		}
+
+		if (!asyncSaveGuard.tryStart()) {
+			return;
+		}
+
+		cleanup();
+
+		Map<String, Long> regionsToSave = regionState.snapshotDirtyVersions();
+
+		if (regionsToSave.isEmpty()) {
+			int unloadedRegions = enforceLoadedRegionLimit();
+
+			RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Spawner_Output_Limit", unloadedRegions);
+
+			asyncSaveGuard.finish();
+			if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
+				Bukkit.getScheduler().runTask(plugin, this::saveAsync);
+			}
+
+			return;
+		}
+
+		Map<String, RegionSnapshot> snapshots = createRegionSnapshots(regionsToSave.keySet());
+
+		Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+			try {
+				RegionSnapshotWriteHelper.writeSnapshots(
+						dataSaveLock,
+						snapshots,
+						this::writeRegionSnapshot
+				);
+			} finally {
+				Bukkit.getScheduler().runTask(plugin, () -> {
+					RegionSaveCompletionHelper.clearSavedDirtyRegions(regionState, regionsToSave);
+
+					int unloadedRegions = enforceLoadedRegionLimit();
+
+					RegionSaveCompletionHelper.logUnloadedRegions(plugin, "Spawner_Output_Limit", unloadedRegions);
+
+					asyncSaveGuard.finish();
+					if (asyncSaveGuard.consumeQueued() && plugin.isEnabled()) {
+						saveAsync();
+					}
+				});
+			}
+		});
+	}
+
+	private Map<String, RegionSnapshot> createRegionSnapshots(Set<String> regionIds) {
+		Map<String, RegionSnapshot> snapshots = new HashMap<>();
+
+		for (String regionId : regionIds) {
+			RegionSnapshot snapshot = new RegionSnapshot();
+
+			for (Map.Entry<String, SpawnerPool> entry : spawnerPools.entrySet()) {
+				SpawnerPool pool = entry.getValue();
+
+				if (!regionId.equals(pool.regionId)) {
+					continue;
+				}
+
+				SpawnerSnapshot spawnerSnapshot = new SpawnerSnapshot(
+						pool.entityTypeName,
+						pool.resource,
+						pool.lastRegenTime,
+						pool.lastAccessTime
+				);
+
+				snapshot.spawners.put(entry.getKey(), spawnerSnapshot);
+			}
+
+			snapshots.put(regionId, snapshot);
+		}
+
+		return snapshots;
+	}
+
+	private void writeRegionSnapshot(String regionId, RegionSnapshot snapshot) {
+		File regionFile = getRegionFile(regionId);
+
+		if (snapshot.spawners.isEmpty()) {
+			RegionFileIoHelper.deleteEmptyRegionFile(
+					plugin,
+					regionFile,
+					"Unable to delete empty spawner region data file"
+			);
+			return;
+		}
+
+		RegionFileIoHelper.ensureParentFolderExists(regionFile);
+
+		YamlConfiguration regionConfig = new YamlConfiguration();
+
+		for (Map.Entry<String, SpawnerSnapshot> entry : snapshot.spawners.entrySet()) {
+			String spawnerKey = entry.getKey();
+			SpawnerSnapshot snapshotPool = entry.getValue();
+
+			String basePath = "spawners." + spawnerKey;
+
+			regionConfig.set(basePath + ".entity-type", snapshotPool.entityTypeName);
+			regionConfig.set(basePath + ".resource", snapshotPool.resource);
+			regionConfig.set(basePath + ".last-regen-time", snapshotPool.lastRegenTime);
+			regionConfig.set(basePath + ".last-access-time", snapshotPool.lastAccessTime);
+		}
+
+		RegionFileIoHelper.saveRegionConfig(
+				plugin,
+				regionConfig,
+				regionFile,
+				"An error occurred when saving spawner region data file"
+		);
+	}
+
+	public int enforceLoadedRegionLimit() {
+		return RegionUnloadHelper.enforceLoadedRegionLimit(
+				plugin,
+				"Spawner_Output_Limit",
+				regionState,
+				shouldUnloadEmptyRegionsAfterSave(),
+				getMaxLoadedRegions(),
+				shouldUnloadInactiveLoadedRegions(),
+				getLoadedRegionInactiveTtlSeconds(),
+				getMaxRegionUnloadsPerCleanup(),
+				this::regionHasTrackedSpawners,
+				this::unloadRegionFromMemory
+		);
+	}
+
+	private void unloadRegionFromMemory(String regionId) {
+		Set<String> spawnerKeys = new HashSet<>(spawnerPools.keySet());
+
+		for (String spawnerKey : spawnerKeys) {
+			SpawnerPool pool = spawnerPools.get(spawnerKey);
+
+			if (pool != null && regionId.equals(pool.regionId)) {
+				spawnerPools.remove(spawnerKey);
+			}
+		}
+
+		regionState.removeLoadedRegion(regionId);
+	}
+
+	private boolean regionHasTrackedSpawners(String regionId) {
+		for (SpawnerPool pool : spawnerPools.values()) {
+			if (regionId.equals(pool.regionId)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public int getTrackedSpawnerCount() {
 		return spawnerPools.size();
 	}
 
-	private SpawnerPool createSpawnerPool(String entityTypeName) {
+	public int getLoadedRegionCount() {
+		return regionState.getLoadedRegionCount();
+	}
+
+	public int getDirtyRegionCount() {
+		return regionState.getDirtyRegionCount();
+	}
+
+	public boolean isAsyncSaveRunning() {
+		return asyncSaveGuard.isRunning();
+	}
+
+	public boolean isAsyncSaveQueued() {
+		return asyncSaveGuard.isQueued();
+	}
+
+	private SpawnerPool createSpawnerPool(String regionId, String entityTypeName) {
 		long now = System.currentTimeMillis();
 
 		return new SpawnerPool(
+				regionId,
 				entityTypeName,
 				getInitialResource(entityTypeName),
 				now,
@@ -200,6 +523,38 @@ public class SpawnerManager {
 		return moduleConfig.getInt("cleanup.inactive-ttl-seconds", 1800);
 	}
 
+	private int getRegionSizeChunks() {
+		return storageConfig.getRegionSizeChunks();
+	}
+
+	private boolean shouldUnloadEmptyRegionsAfterSave() {
+		return storageConfig.shouldUnloadEmptyRegionsAfterSave();
+	}
+
+	public int getMaxLoadedRegions() {
+		return storageConfig.getMaxLoadedRegions();
+	}
+
+	private boolean shouldUnloadInactiveLoadedRegions() {
+		return storageConfig.shouldUnloadInactiveLoadedRegions();
+	}
+
+	private int getLoadedRegionInactiveTtlSeconds() {
+		return storageConfig.getLoadedRegionInactiveTtlSeconds();
+	}
+
+	private int getMaxRegionUnloadsPerCleanup() {
+		return storageConfig.getMaxRegionUnloadsPerCleanup();
+	}
+
+	private void touchRegion(String regionId) {
+		regionState.touch(regionId);
+	}
+
+	private void markRegionDirty(String regionId) {
+		regionState.markDirty(regionId);
+	}
+
 	private String getSpawnerKey(Location location) {
 		return location.getWorld().getName() + "," +
 				location.getBlockX() + "," +
@@ -207,13 +562,43 @@ public class SpawnerManager {
 				location.getBlockZ();
 	}
 
+	private String getRegionId(Location location) {
+		return RegionKeyUtil.getRegionId(location.getChunk(), getRegionSizeChunks());
+	}
+
+	private File getRegionFile(String regionId) {
+		return RegionKeyUtil.getRegionFile(dataRootFolder, regionId);
+	}
+
 	private static class SpawnerPool {
+		private final String regionId;
 		private String entityTypeName;
 		private int resource;
 		private long lastRegenTime;
 		private long lastAccessTime;
 
 		private SpawnerPool(
+				String regionId,
+				String entityTypeName,
+				int resource,
+				long lastRegenTime,
+				long lastAccessTime
+		) {
+			this.regionId = regionId;
+			this.entityTypeName = entityTypeName;
+			this.resource = resource;
+			this.lastRegenTime = lastRegenTime;
+			this.lastAccessTime = lastAccessTime;
+		}
+	}
+
+	private static class SpawnerSnapshot {
+		private final String entityTypeName;
+		private final int resource;
+		private final long lastRegenTime;
+		private final long lastAccessTime;
+
+		private SpawnerSnapshot(
 				String entityTypeName,
 				int resource,
 				long lastRegenTime,
@@ -224,5 +609,9 @@ public class SpawnerManager {
 			this.lastRegenTime = lastRegenTime;
 			this.lastAccessTime = lastAccessTime;
 		}
+	}
+
+	private static class RegionSnapshot {
+		private final Map<String, SpawnerSnapshot> spawners = new HashMap<>();
 	}
 }

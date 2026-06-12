@@ -78,6 +78,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				() -> {
 					fishManager.saveAsync();
 					naturalSpawnManager.saveAsync();
+					spawnerManager.saveAsync();
 				},
 				saveIntervalTicks,
 				saveIntervalTicks
@@ -117,6 +118,10 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 		if (naturalSpawnManager != null) {
 			naturalSpawnManager.save();
+		}
+
+		if (spawnerManager != null) {
+			spawnerManager.save();
 		}
 
 		getLogger().info("FarmLimiter Plugin Disabled!");

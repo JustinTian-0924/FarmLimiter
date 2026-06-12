@@ -1,11 +1,13 @@
 package basementhost.randomchad.spawner;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
 
 public class SpawnerListener implements Listener {
@@ -40,5 +42,18 @@ public class SpawnerListener implements Listener {
 		if (!allowed) {
 			event.setCancelled(true);
 		}
+	}
+
+	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+	public void onSpawnerBreak(BlockBreakEvent event) {
+		if (!spawnerManager.isEnabled()) {
+			return;
+		}
+
+		if (event.getBlock().getType() != Material.SPAWNER) {
+			return;
+		}
+
+		spawnerManager.removeSpawner(event.getBlock().getLocation());
 	}
 }

@@ -374,12 +374,15 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		int fishRemoved = fishManager.cleanupAndGetRemovedCount();
 		int naturalRemoved = naturalSpawnManager.cleanupAndGetRemovedCount();
+		plugin.getSpawnerManager().cleanupAndGetRemovedCount();
+		plugin.getSpawnerManager().saveAsync();
 
 		int fishAfter = fishManager.getTrackedChunkCount();
 		int naturalAfter = naturalSpawnManager.getTrackedChunkCount();
 
 		fishManager.saveAsync();
 		naturalSpawnManager.saveAsync();
+		plugin.getSpawnerManager().saveAsync();
 
 		sender.sendMessage(lang("cleanup.header"));
 		sender.sendMessage(lang("cleanup.fish-result", Map.of(
