@@ -4,25 +4,46 @@ enabled: true
 # Default resource settings for all spawners.
 default:
   # Resource amount given to a newly placed or newly discovered spawner.
-  initial-resource: 500
+  initial-resource: 400
 
   # Maximum resource this spawner can regenerate to.
   max-resource: 1000
 
   # Amount of resource restored each regeneration cycle.
-  regen-amount: 4
+  regen-amount: 2
 
   # Seconds between each regeneration cycle.
   regen-interval-seconds: 60
 
+behavior:
+  # Whether this module should apply custom vanilla spawner settings.
+  apply-settings: true
+  # Required player range in blocks for the spawner to activate.
+  required-player-range: 24
+  # Spawn range in blocks around the spawner.
+  spawn-range: 4
+  # Number of mobs the spawner tries to spawn each cycle.
+  spawn-count-min: 1
+  spawn-count-max: 4
+  # Minimum seconds between spawn attempts.
+  min-spawn-delay-seconds: 10
+  # Maximum seconds between spawn attempts.
+  max-spawn-delay-seconds: 30
 # Per-entity overrides.
 # Entity names must use Bukkit EntityType names, such as ZOMBIE, SKELETON, CREEPER.
 per-entity:
   ZOMBIE:
-    initial-resource: 800
-    max-resource: 2000
-    regen-amount: 10
-    regen-interval-seconds: 90
+    initial-resource: 600
+    max-resource: 1500
+    regen-amount: 3
+    regen-interval-seconds: 60
+    behavior:
+      required-player-range: 24
+      spawn-range: 4
+      spawn-count-min: 2
+      spawn-count-max: 6
+      min-spawn-delay-seconds: 10
+      max-spawn-delay-seconds: 30
 
   SKELETON:
     initial-resource: 500

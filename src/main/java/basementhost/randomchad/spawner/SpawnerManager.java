@@ -3,6 +3,7 @@ package basementhost.randomchad.spawner;
 import basementhost.randomchad.storage.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.block.CreatureSpawner;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
@@ -14,6 +15,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class SpawnerManager {
 
@@ -613,5 +615,109 @@ public class SpawnerManager {
 
 	private static class RegionSnapshot {
 		private final Map<String, SpawnerSnapshot> spawners = new HashMap<>();
+	}
+
+	public void applySpawnerSettings(CreatureSpawner spawner) {
+		if (!shouldApplySpawnerSettings()) {
+			return;
+		}
+
+		String entityTypeName = spawner.getSpawnedType().name();
+
+		spawner.setRequiredPlayerRange(getRequiredPlayerRange(entityTypeName));
+		spawner.setSpawnRange(getSpawnRange(entityTypeName));
+		spawner.setSpawnCount(rollSpawnCount(entityTypeName));
+
+		int minDelayTicks = getMinSpawnDelaySeconds(entityTypeName) * 20;
+		int maxDelayTicks = getMaxSpawnDelaySeconds(entityTypeName) * 20;
+
+		if (maxDelayTicks < minDelayTicks) {
+			maxDelayTicks = minDelayTicks;
+		}
+
+		spawner.setMinSpawnDelay(minDelayTicks);
+		spawner.setMaxSpawnDelay(maxDelayTicks);
+
+		spawner.update(true, false);
+	}
+
+	public boolean shouldApplySpawnerSettings() {
+		return moduleConfig.getBoolean("behavior.apply-settings", true);
+	}
+
+	public int getRequiredPlayerRange(String entityTypeName) {
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".behavior.required-player-range",
+				moduleConfig.getInt("behavior.required-player-range", 16)
+		);
+	}
+
+	public int getSpawnRange(String entityTypeName) {
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".behavior.spawn-range",
+				moduleConfig.getInt("behavior.spawn-range", 4)
+		);
+	}
+
+	public int getMinSpawnCount(String entityTypeName) {
+		int fallback = moduleConfig.getInt("behavior.spawn-count", 4);
+
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".behavior.spawn-count-min",
+				moduleConfig.getInt("behavior.spawn-count-min", fallback)
+		);
+	}
+
+	public int getMaxSpawnCount(String entityTypeName) {
+		int fallback = moduleConfig.getInt("behavior.spawn-count", 4);
+
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".behavior.spawn-count-max",
+				moduleConfig.getInt("behavior.spawn-count-max", fallback)
+		);
+	}
+
+	public String getSpawnCountRangeText(String entityTypeName) {
+		int minSpawnCount = getMinSpawnCount(entityTypeName);
+		int maxSpawnCount = getMaxSpawnCount(entityTypeName);
+
+		if (maxSpawnCount < minSpawnCount) {
+			maxSpawnCount = minSpawnCount;
+		}
+
+		if (minSpawnCount == maxSpawnCount) {
+			return String.valueOf(minSpawnCount);
+		}
+
+		return minSpawnCount + "-" + maxSpawnCount;
+	}
+
+	private int rollSpawnCount(String entityTypeName) {
+		int minSpawnCount = getMinSpawnCount(entityTypeName);
+		int maxSpawnCount = getMaxSpawnCount(entityTypeName);
+
+		if (minSpawnCount < 1) {
+			minSpawnCount = 1;
+		}
+
+		if (maxSpawnCount < minSpawnCount) {
+			maxSpawnCount = minSpawnCount;
+		}
+
+		return ThreadLocalRandom.current().nextInt(minSpawnCount, maxSpawnCount + 1);
+	}
+
+	public int getMinSpawnDelaySeconds(String entityTypeName) {
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".behavior.min-spawn-delay-seconds",
+				moduleConfig.getInt("behavior.min-spawn-delay-seconds", 10)
+		);
+	}
+
+	public int getMaxSpawnDelaySeconds(String entityTypeName) {
+		return moduleConfig.getInt(
+				"per-entity." + entityTypeName + ".behavior.max-spawn-delay-seconds",
+				moduleConfig.getInt("behavior.max-spawn-delay-seconds", 40)
+		);
 	}
 }

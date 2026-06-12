@@ -280,44 +280,79 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		Block targetBlock = player.getTargetBlockExact(10);
 
 		if (targetBlock == null) {
-			player.sendMessage(Component.text("No block found within 10 blocks."));
+			player.sendMessage(lang("spawnercheck.no-target"));
 			return;
 		}
 
 		BlockState blockState = targetBlock.getState();
 
 		if (!(blockState instanceof CreatureSpawner spawner)) {
-			player.sendMessage(Component.text("The block you are looking at is not a spawner."));
+			player.sendMessage(lang("spawnercheck.not-spawner"));
 			return;
 		}
 
 		Location location = spawner.getLocation();
 		EntityType entityType = spawner.getSpawnedType();
 		String entityTypeName = entityType.name();
-
+		String spawnCountRange = plugin.getSpawnerManager().getSpawnCountRangeText(entityTypeName);
 		int currentResource = plugin.getSpawnerManager().getRemainingResource(location, entityType);
 		int initialResource = plugin.getSpawnerManager().getInitialResource(entityTypeName);
 		int maxResource = plugin.getSpawnerManager().getMaxResource(entityTypeName);
 		int regenAmount = plugin.getSpawnerManager().getRegenAmount(entityTypeName);
 		int regenIntervalSeconds = plugin.getSpawnerManager().getRegenIntervalSeconds(entityTypeName);
 
-		player.sendMessage(Component.text("Spawner check:"));
-		player.sendMessage(Component.text("Enabled: " + plugin.getSpawnerManager().isEnabled()));
-		player.sendMessage(Component.text("World: " + location.getWorld().getName()));
-		player.sendMessage(Component.text("Location: X=" + location.getBlockX() + ", Y=" + location.getBlockY() + ", Z=" + location.getBlockZ()));
-		player.sendMessage(Component.text("Entity: " + entityTypeName));
-		player.sendMessage(Component.text("Resource: " + currentResource + " / " + maxResource));
-		player.sendMessage(Component.text("Initial resource: " + initialResource));
-		player.sendMessage(Component.text("Regen: +" + regenAmount + " every " + regenIntervalSeconds + " seconds"));
-		player.sendMessage(Component.text("Tracked spawners: " + plugin.getSpawnerManager().getTrackedSpawnerCount()));
-
-		player.sendMessage(Component.text("Spawner settings:"));
-		player.sendMessage(Component.text("Required player range: " + spawner.getRequiredPlayerRange()));
-		player.sendMessage(Component.text("Spawn range: " + spawner.getSpawnRange()));
-		player.sendMessage(Component.text("Spawn count: " + spawner.getSpawnCount()));
-		player.sendMessage(Component.text("Min delay: " + spawner.getMinSpawnDelay()));
-		player.sendMessage(Component.text("Max delay: " + spawner.getMaxSpawnDelay()));
-		player.sendMessage(Component.text("Current delay: " + spawner.getDelay()));
+		player.sendMessage(lang("spawnercheck.header"));
+		player.sendMessage(lang("spawnercheck.enabled", Map.of(
+				"value", plugin.getSpawnerManager().isEnabled()
+		)));
+		player.sendMessage(lang("spawnercheck.world", Map.of(
+				"world", location.getWorld().getName()
+		)));
+		player.sendMessage(lang("spawnercheck.location", Map.of(
+				"x", location.getBlockX(),
+				"y", location.getBlockY(),
+				"z", location.getBlockZ()
+		)));
+		player.sendMessage(lang("spawnercheck.entity", Map.of(
+				"entity", entityTypeName
+		)));
+		player.sendMessage(lang("spawnercheck.resource", Map.of(
+				"current", currentResource,
+				"max", maxResource
+		)));
+		player.sendMessage(lang("spawnercheck.initial-resource", Map.of(
+				"value", initialResource
+		)));
+		player.sendMessage(lang("spawnercheck.regen", Map.of(
+				"amount", regenAmount,
+				"seconds", regenIntervalSeconds
+		)));
+		player.sendMessage(lang("spawnercheck.tracked-spawners", Map.of(
+				"value", plugin.getSpawnerManager().getTrackedSpawnerCount()
+		)));
+		player.sendMessage(lang("spawnercheck.settings-header"));
+		player.sendMessage(lang("spawnercheck.required-player-range", Map.of(
+				"value", spawner.getRequiredPlayerRange()
+		)));
+		player.sendMessage(lang("spawnercheck.spawn-range", Map.of(
+				"value", spawner.getSpawnRange()
+		)));
+		player.sendMessage(lang("spawnercheck.spawn-count", Map.of(
+				"current", spawner.getSpawnCount(),
+				"configured", spawnCountRange
+		)));
+		player.sendMessage(lang("spawnercheck.min-delay", Map.of(
+				"ticks", spawner.getMinSpawnDelay(),
+				"seconds", spawner.getMinSpawnDelay() / 20
+		)));
+		player.sendMessage(lang("spawnercheck.max-delay", Map.of(
+				"ticks", spawner.getMaxSpawnDelay(),
+				"seconds", spawner.getMaxSpawnDelay() / 20
+		)));
+		player.sendMessage(lang("spawnercheck.current-delay", Map.of(
+				"ticks", spawner.getDelay(),
+				"seconds", spawner.getDelay() / 20
+		)));
 	}
 
 	private void handleStats(CommandSender sender) {
