@@ -2,7 +2,10 @@ package basementhost.randomchad.spawner;
 
 import basementhost.randomchad.storage.*;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -490,31 +493,36 @@ public class SpawnerManager {
 	}
 
 	public int getInitialResource(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".initial-resource",
 				moduleConfig.getInt("default.initial-resource", 500)
 		);
+
+		return Math.max(0, value);
 	}
 
 	public int getMaxResource(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".max-resource",
 				moduleConfig.getInt("default.max-resource", 1000)
 		);
+		return Math.max(0, value);
 	}
 
 	public int getRegenAmount(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".regen-amount",
 				moduleConfig.getInt("default.regen-amount", 4)
 		);
+		return Math.max(0, value);
 	}
 
 	public int getRegenIntervalSeconds(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".regen-interval-seconds",
 				moduleConfig.getInt("default.regen-interval-seconds", 60)
 		);
+		return Math.max(1, value);
 	}
 
 	private boolean shouldUnloadWhenFull() {
@@ -624,19 +632,27 @@ public class SpawnerManager {
 
 		String entityTypeName = spawner.getSpawnedType().name();
 
-		spawner.setRequiredPlayerRange(getRequiredPlayerRange(entityTypeName));
-		spawner.setSpawnRange(getSpawnRange(entityTypeName));
-		spawner.setSpawnCount(rollSpawnCount(entityTypeName));
+		int requiredPlayerRange = Math.max(1, getRequiredPlayerRange(entityTypeName));
+		int spawnRange = Math.max(1, getSpawnRange(entityTypeName));
+		int spawnCount = rollSpawnCount(entityTypeName);
 
-		int minDelayTicks = getMinSpawnDelaySeconds(entityTypeName) * 20;
-		int maxDelayTicks = getMaxSpawnDelaySeconds(entityTypeName) * 20;
+		int minDelayTicks = Math.max(1, getMinSpawnDelaySeconds(entityTypeName) * 20);
+		int maxDelayTicks = Math.max(1, getMaxSpawnDelaySeconds(entityTypeName) * 20);
 
 		if (maxDelayTicks < minDelayTicks) {
 			maxDelayTicks = minDelayTicks;
 		}
 
-		spawner.setMinSpawnDelay(minDelayTicks);
+		spawner.setRequiredPlayerRange(requiredPlayerRange);
+		spawner.setSpawnRange(spawnRange);
+		spawner.setSpawnCount(spawnCount);
+
 		spawner.setMaxSpawnDelay(maxDelayTicks);
+		spawner.setMinSpawnDelay(minDelayTicks);
+
+		if (spawner.getDelay() > maxDelayTicks || spawner.getDelay() < minDelayTicks) {
+			spawner.setDelay(minDelayTicks);
+		}
 
 		spawner.update(true, false);
 	}
@@ -646,17 +662,19 @@ public class SpawnerManager {
 	}
 
 	public int getRequiredPlayerRange(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".behavior.required-player-range",
 				moduleConfig.getInt("behavior.required-player-range", 16)
 		);
+		return Math.max(1, value);
 	}
 
 	public int getSpawnRange(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".behavior.spawn-range",
 				moduleConfig.getInt("behavior.spawn-range", 4)
 		);
+		return Math.max(1, value);
 	}
 
 	public int getMinSpawnCount(String entityTypeName) {
@@ -708,16 +726,36 @@ public class SpawnerManager {
 	}
 
 	public int getMinSpawnDelaySeconds(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".behavior.min-spawn-delay-seconds",
 				moduleConfig.getInt("behavior.min-spawn-delay-seconds", 10)
 		);
+		return Math.max(1, value);
 	}
 
 	public int getMaxSpawnDelaySeconds(String entityTypeName) {
-		return moduleConfig.getInt(
+		int value = moduleConfig.getInt(
 				"per-entity." + entityTypeName + ".behavior.max-spawn-delay-seconds",
 				moduleConfig.getInt("behavior.max-spawn-delay-seconds", 40)
 		);
+		return Math.max(1, value);
+	}
+
+	public int applyLoadedSpawnerSettings() {
+		if (!isEnabled() || !shouldApplySpawnerSettings()) {
+			return 0;
+		}
+		int appliedCount = 0;
+		for (World world : Bukkit.getWorlds()) {
+			for (Chunk chunk : world.getLoadedChunks()) {
+				for (BlockState blockState : chunk.getTileEntities()) {
+					if (blockState instanceof CreatureSpawner spawner) {
+						applySpawnerSettings(spawner);
+						appliedCount++;
+					}
+				}
+			}
+		}
+		return appliedCount;
 	}
 }

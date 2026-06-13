@@ -71,6 +71,7 @@ help:
   save: "&e/farmlimiter save &7- 异步保存插件数据"
   reload: "&e/farmlimiter reload &7- 重载配置和数据"
   spawnercheck: "&e/farmlimiter spawnercheck &7- 查看准星指向的刷怪笼信息"
+  spawnerapply: "&e/farmlimiter spawnerapply &7- 将刷怪笼行为设置应用到已加载刷怪笼"
 
 spawnercheck:
   header: "&6刷怪笼检查:"
@@ -91,3 +92,6 @@ spawnercheck:
   min-delay: "&7最短间隔: &f{ticks} tick &7({seconds}秒)"
   max-delay: "&7最长间隔: &f{ticks} tick &7({seconds}秒)"
   current-delay: "&7当前倒计时: &f{ticks} tick &7({seconds}秒)"
+
+spawnerapply:
+  success: "&a已将刷怪笼行为设置应用到 &f{count} &a个已加载刷怪笼。"

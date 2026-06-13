@@ -88,6 +88,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				handleSpawnerCheck(sender);
 				return true;
 
+			case "spawnerapply":
+				handleSpawnerApply(sender);
+				return true;
+
 			default:
 				sender.sendMessage(lang("command.unknown-command", Map.of(
 						"label", label
@@ -479,6 +483,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("help.natural"));
 		sender.sendMessage(lang("help.natural-entity"));
 		sender.sendMessage(lang("help.spawnercheck"));
+		sender.sendMessage(lang("help.spawnerapply"));
 		sender.sendMessage(lang("help.debug"));
 		sender.sendMessage(lang("help.stats"));
 		sender.sendMessage(lang("help.cleanup"));
@@ -503,6 +508,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("stats");
 			suggestions.add("cleanup");
 			suggestions.add("spawnercheck");
+			suggestions.add("spawnerapply");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");
@@ -569,5 +575,16 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 	private Component lang(String path, Map<String, Object> placeholders) {
 		return Component.text(plugin.getLangManager().get(path, placeholders));
+	}
+
+	private void handleSpawnerApply(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+		int appliedCount = plugin.getSpawnerManager().applyLoadedSpawnerSettings();
+		sender.sendMessage(lang("spawnerapply.success", Map.of(
+				"count", appliedCount
+		)));
 	}
 }
