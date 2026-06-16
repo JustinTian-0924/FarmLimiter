@@ -1,6 +1,14 @@
 # Whether the spawner output limit module is enabled.
 enabled: true
-
+debug:
+  # Whether spawner debug logs are enabled.
+  enabled: false
+  # Log every spawner spawn attempt.
+  log-spawn-attempts: false
+  # Log when a spawner spawn is cancelled because resource is empty.
+  log-cancelled-spawns: true
+  # Log when plugin applies vanilla spawner behavior settings.
+  log-apply-settings: false
 # Default resource settings for all spawners.
 default:
   # Resource amount given to a newly placed or newly discovered spawner.

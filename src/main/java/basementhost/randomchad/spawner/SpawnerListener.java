@@ -1,5 +1,6 @@
 package basementhost.randomchad.spawner;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
@@ -42,9 +43,31 @@ public class SpawnerListener implements Listener {
 		EntityType entityType = event.getEntityType();
 
 		boolean allowed = spawnerManager.tryConsumeSpawnerResource(spawnerLocation, entityType);
+		int remainingResource = spawnerManager.getRemainingResource(spawnerLocation, entityType);
+
+		if (spawnerManager.shouldLogSpawnerSpawnAttempts()) {
+			Bukkit.getLogger().info(
+					"[SpawnerDebug] Spawn attempt: " +
+							entityType.name() +
+							" at " +
+							spawnerManager.formatLocation(spawnerLocation) +
+							", allowed=" + allowed +
+							", remainingResource=" + remainingResource
+			);
+		}
 
 		if (!allowed) {
 			event.setCancelled(true);
+
+			if (spawnerManager.shouldLogCancelledSpawnerSpawns()) {
+				Bukkit.getLogger().info(
+						"[SpawnerDebug] Cancelled spawner spawn: " +
+								entityType.name() +
+								" at " +
+								spawnerManager.formatLocation(spawnerLocation) +
+								", remainingResource=" + remainingResource
+				);
+			}
 		}
 	}
 

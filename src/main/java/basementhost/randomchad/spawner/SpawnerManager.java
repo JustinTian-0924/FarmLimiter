@@ -655,6 +655,20 @@ public class SpawnerManager {
 		}
 
 		spawner.update(true, false);
+
+		if (shouldLogSpawnerSettingsApply()) {
+			plugin.getLogger().info(
+					"[SpawnerDebug] Applied settings to " +
+							entityTypeName +
+							" spawner at " +
+							formatLocation(spawner.getLocation()) +
+							", range=" + requiredPlayerRange +
+							", spawnRange=" + spawnRange +
+							", spawnCount=" + spawnCount +
+							", minDelayTicks=" + minDelayTicks +
+							", maxDelayTicks=" + maxDelayTicks
+			);
+		}
 	}
 
 	public boolean shouldApplySpawnerSettings() {
@@ -757,5 +771,32 @@ public class SpawnerManager {
 			}
 		}
 		return appliedCount;
+	}
+
+	public boolean isDebugEnabled() {
+		return moduleConfig.getBoolean("debug.enabled", false);
+	}
+
+	public boolean shouldLogSpawnerSpawnAttempts() {
+		return isDebugEnabled() && moduleConfig.getBoolean("debug.log-spawn-attempts", false);
+	}
+
+	public boolean shouldLogCancelledSpawnerSpawns() {
+		return isDebugEnabled() && moduleConfig.getBoolean("debug.log-cancelled-spawns", true);
+	}
+
+	public boolean shouldLogSpawnerSettingsApply() {
+		return isDebugEnabled() && moduleConfig.getBoolean("debug.log-apply-settings", false);
+	}
+
+	public void setDebug(boolean enabled) {
+		moduleConfig.set("debug.enabled", enabled);
+	}
+
+	public String formatLocation(Location location) {
+		return location.getWorld().getName() + " " +
+				location.getBlockX() + "," +
+				location.getBlockY() + "," +
+				location.getBlockZ();
 	}
 }

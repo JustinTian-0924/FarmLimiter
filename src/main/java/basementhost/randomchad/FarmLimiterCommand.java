@@ -240,7 +240,9 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		if (args.length < 2 || args[1].equalsIgnoreCase("status")) {
 			boolean enabled = naturalSpawnManager.isDebugEnabled();
 			boolean logAll = naturalSpawnManager.shouldLogAllCreatureSpawns();
+			boolean spawnerDebugEnabled = plugin.getSpawnerManager().isDebugEnabled();
 
+			sender.sendMessage(Component.text("Spawner debug enabled: " + spawnerDebugEnabled));
 			sender.sendMessage(lang("debug.header"));
 			sender.sendMessage(lang("debug.enabled", Map.of(
 					"value", enabled
@@ -254,7 +256,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args[1].equalsIgnoreCase("on")) {
 			naturalSpawnManager.setDebug(true, true);
-
+			plugin.getSpawnerManager().setDebug(true);
 			sender.sendMessage(lang("debug.enabled-message"));
 			sender.sendMessage(lang("debug.spam-warning"));
 			return;
@@ -262,7 +264,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args[1].equalsIgnoreCase("off")) {
 			naturalSpawnManager.setDebug(false, false);
-
+			plugin.getSpawnerManager().setDebug(false);
 			sender.sendMessage(lang("debug.disabled-message"));
 			return;
 		}
