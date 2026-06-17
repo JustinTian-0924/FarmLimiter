@@ -22,7 +22,12 @@ default:
 
   # Seconds between each regeneration cycle.
   regen-interval-seconds: 60
-
+  #Notify player in certain raidus when the spawner is depleated
+notify:
+  empty-actionbar:
+    enabled: true
+    radius: 16
+    cooldown-seconds: 300
 behavior:
   # Whether this module should apply custom vanilla spawner settings.
   apply-settings: true

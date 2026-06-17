@@ -35,6 +35,7 @@ public class SpawnerManager {
 	private File dataRootFolder;
 
 	private final Object dataSaveLock = new Object();
+	private final Map<String, Long> emptyActionbarNotifyTimes = new HashMap<>();
 
 	public SpawnerManager(JavaPlugin plugin) {
 		this.plugin = plugin;
@@ -798,5 +799,35 @@ public class SpawnerManager {
 				location.getBlockX() + "," +
 				location.getBlockY() + "," +
 				location.getBlockZ();
+	}
+
+	public boolean isEmptyActionbarEnabled() {
+		return moduleConfig.getBoolean("notify.empty-actionbar.enabled", true);
+	}
+
+	public int getEmptyActionbarRadius() {
+		return Math.max(1, moduleConfig.getInt("notify.empty-actionbar.radius", 8));
+	}
+
+	public int getEmptyActionbarCooldownSeconds() {
+		return Math.max(1, moduleConfig.getInt("notify.empty-actionbar.cooldown-seconds", 5));
+	}
+
+	public boolean tryStartEmptyActionbarCooldown(Location location) {
+		if (!isEmptyActionbarEnabled()) {
+			return false;
+		}
+
+		String spawnerKey = getSpawnerKey(location);
+		long now = System.currentTimeMillis();
+		long cooldownMillis = getEmptyActionbarCooldownSeconds() * 1000L;
+		long lastNotifyTime = emptyActionbarNotifyTimes.getOrDefault(spawnerKey, 0L);
+
+		if (now - lastNotifyTime < cooldownMillis) {
+			return false;
+		}
+
+		emptyActionbarNotifyTimes.put(spawnerKey, now);
+		return true;
 	}
 }

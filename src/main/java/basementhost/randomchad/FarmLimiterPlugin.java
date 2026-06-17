@@ -49,7 +49,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		);
 
 		Bukkit.getPluginManager().registerEvents(
-				new SpawnerListener(spawnerManager),
+				new SpawnerListener(this, spawnerManager),
 				this
 		);
 

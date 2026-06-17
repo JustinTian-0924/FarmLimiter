@@ -93,5 +93,8 @@ spawnercheck:
   max-delay: "&7最长间隔: &f{ticks} tick &7({seconds}秒)"
   current-delay: "&7当前倒计时: &f{ticks} tick &7({seconds}秒)"
 
+spawner:
+  empty-actionbar: "&c这个 {entity} 刷怪笼资源不足，暂时无法继续生成。"
+
 spawnerapply:
   success: "&a已将刷怪笼行为设置应用到 &f{count} &a个已加载刷怪笼。"

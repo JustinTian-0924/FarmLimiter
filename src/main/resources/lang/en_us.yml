@@ -93,5 +93,8 @@ spawnercheck:
   max-delay: "&7Max delay: &f{ticks} ticks &7({seconds}s)"
   current-delay: "&7Current delay: &f{ticks} ticks &7({seconds}s)"
 
+spawner:
+  empty-actionbar: "&cThis {entity} spawner is out of resources."
+
 spawnerapply:
-  success: "&a已将刷怪笼行为设置应用到 &f{count} &a个已加载刷怪笼。"
+  success: "&aHad updated &f{count} &aspawner with new configuration settings"
