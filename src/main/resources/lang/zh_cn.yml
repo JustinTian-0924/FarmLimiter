@@ -52,12 +52,15 @@ stats:
   spawner-dirty-regions: "&7刷怪笼产出限制 待保存区域: &f{value}"
   spawner-async-running: "&7刷怪笼产出限制 异步保存运行中: &f{value}"
   spawner-async-queued: "&7刷怪笼产出限制 异步保存已排队: &f{value}"
+  breeding-enabled: "&7繁殖限制 已启用：&e{value}"
+  breeding-default-limit: "&7繁殖限制 默认上限：&e{value}"
 
 cleanup:
   header: "&aFarmLimiter 清理完成："
   fish-result: "&7Fish_Depletion：&e{before}&7 -> &e{after}&7，移除 &e{removed}"
   natural-result: "&7Natural_Spawn_Rate_Limit：&e{before}&7 -> &e{after}&7，移除 &e{removed}"
   spawner-result: "&7刷怪笼产出限制: &f{before} -> {after} &7已清理 &f{removed}"
+  breeding-result: "&7繁殖限制：已清理 &e{removed}"
 
 help:
   header: "&aFarmLimiter 命令："
@@ -72,6 +75,7 @@ help:
   reload: "&e/farmlimiter reload &7- 重载配置和数据"
   spawnercheck: "&e/farmlimiter spawnercheck &7- 查看准星指向的刷怪笼信息"
   spawnerapply: "&e/farmlimiter spawnerapply &7- 将刷怪笼行为设置应用到已加载刷怪笼"
+  breeding: "&e/farmlimiter breeding &7- 繁殖限制会自动检测"
 
 spawnercheck:
   header: "&6刷怪笼检查:"
@@ -101,3 +105,12 @@ spawnerapply:
 
 spawnerreset:
   success: "&a已将 &f{entity} &a刷怪笼资源重置至 &f{current} / {max}&a."
+
+breeding:
+  actionbar-blocked: "&c当前区块的 {entity} 已过多：{current}/{limit}，无法继续繁殖。"
+  chat-blocked: "&c繁殖已阻止：当前区块已有 &f{current}/{limit} &c个 {entity}。"
+  header: "&a当前区块繁殖限制："
+  world: "&7世界：&e{world}"
+  chunk: "&7区块 X：&e{x}&7，Z：&e{z}"
+  unknown-entity: "&c未知实体类型：&e{entity}"
+  entity-status: "&7{entity}：&e{current}&7 / &e{limit}"

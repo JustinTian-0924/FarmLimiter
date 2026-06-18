@@ -1,0 +1,64 @@
+# Whether the breeding limit module is enabled.
+enabled: true
+
+# Default per-chunk limit for each breedable entity type.
+# Example:
+# If this is 96, players cannot breed more cows in a chunk that already has 96 or more cows.
+default-limit: 96
+
+# Per-entity limits.
+# Entity names must use Bukkit EntityType names, such as SHEEP, VILLAGER, ALLAY.
+#
+# Common breedable / duplication-related entity types:
+# - ALLAY
+# - ARMADILLO
+# - AXOLOTL
+# - BEE
+# - CAMEL
+# - CAT
+# - CHICKEN
+# - COW
+# - DONKEY
+# - FOX
+# - FROG
+# - GOAT
+# - HOGLIN
+# - HORSE
+# - LLAMA
+# - MULE
+# - OCELOT
+# - PANDA
+# - PIG
+# - RABBIT
+# - SHEEP
+# - SNIFFER
+# - STRIDER
+# - TURTLE
+# - VILLAGER
+# - WOLF
+per-entity:
+  SHEEP: 24
+  CHICKEN: 24
+  COW: 24
+  PIG: 24
+  HORSE: 24
+  MULE: 24
+  DONKEY: 24
+  VILLAGER: 32
+  ALLAY: 16
+  WOLF: 24
+  RABBIT: 24
+  GOAT: 24
+  LLAMA: 24
+  TURTLE: 24
+  CAT: 24
+
+notify:
+  # Send an actionbar message to the player when breeding is blocked.
+  actionbar: true
+
+  # Send a chat message to the player when breeding is blocked.
+  chat: false
+
+debug:
+  enabled: false

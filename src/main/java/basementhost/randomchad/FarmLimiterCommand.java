@@ -1,5 +1,6 @@
 package basementhost.randomchad;
 
+import basementhost.randomchad.breeding.BreedingLimitManager;
 import basementhost.randomchad.fish.FishManager;
 import basementhost.randomchad.natural.NaturalSpawnManager;
 import net.kyori.adventure.text.Component;
@@ -26,15 +27,18 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 	private final FarmLimiterPlugin plugin;
 	private final FishManager fishManager;
 	private final NaturalSpawnManager naturalSpawnManager;
+	private final BreedingLimitManager breedingLimitManager;
 
 	public FarmLimiterCommand(
 			FarmLimiterPlugin plugin,
 			FishManager fishManager,
-			NaturalSpawnManager naturalSpawnManager
+			NaturalSpawnManager naturalSpawnManager,
+			BreedingLimitManager breedingLimitManager
 	) {
 		this.plugin = plugin;
 		this.fishManager = fishManager;
 		this.naturalSpawnManager = naturalSpawnManager;
+		this.breedingLimitManager = breedingLimitManager;
 	}
 
 	@Override
@@ -96,6 +100,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				handleSpawnerReset(sender);
 				return true;
 
+			case "breeding":
+				handleBreeding(sender, args);
+				return true;
+
 			default:
 				sender.sendMessage(lang("command.unknown-command", Map.of(
 						"label", label
@@ -113,6 +121,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		fishManager.save();
 		naturalSpawnManager.save();
 		plugin.getSpawnerManager().save();
+		breedingLimitManager.save();
 
 		plugin.reloadConfig();
 		plugin.getLangManager().load();
@@ -120,6 +129,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		fishManager.load();
 		naturalSpawnManager.load();
 		plugin.getSpawnerManager().load();
+		breedingLimitManager.load();
 
 		sender.sendMessage(lang("command.reload-success"));
 	}
@@ -233,6 +243,63 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 					"seconds", entityRegenIntervalSeconds
 			)));
 		}
+	}
+
+	private void handleBreeding(CommandSender sender, String[] args) {
+		if (!(sender instanceof Player player)) {
+			sender.sendMessage(lang("command.player-only"));
+			return;
+		}
+
+		if (!sender.hasPermission("farmlimiter.use")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		Chunk chunk = player.getLocation().getChunk();
+
+		player.sendMessage(lang("breeding.header"));
+		player.sendMessage(lang("breeding.world", Map.of(
+				"world", chunk.getWorld().getName()
+		)));
+		player.sendMessage(lang("breeding.chunk", Map.of(
+				"x", chunk.getX(),
+				"z", chunk.getZ()
+		)));
+
+		if (args.length >= 2) {
+			String entityName = args[1].toUpperCase();
+			EntityType entityType;
+
+			try {
+				entityType = EntityType.valueOf(entityName);
+			} catch (IllegalArgumentException exception) {
+				player.sendMessage(lang("breeding.unknown-entity", Map.of(
+						"entity", entityName
+				)));
+				return;
+			}
+
+			sendBreedingEntityStatus(player, chunk, entityType);
+			return;
+		}
+
+		sendBreedingEntityStatus(player, chunk, EntityType.SHEEP);
+		sendBreedingEntityStatus(player, chunk, EntityType.COW);
+		sendBreedingEntityStatus(player, chunk, EntityType.CHICKEN);
+		sendBreedingEntityStatus(player, chunk, EntityType.PIG);
+		sendBreedingEntityStatus(player, chunk, EntityType.VILLAGER);
+		sendBreedingEntityStatus(player, chunk, EntityType.ALLAY);
+	}
+
+	private void sendBreedingEntityStatus(Player player, Chunk chunk, EntityType entityType) {
+		int current = breedingLimitManager.countSameTypeInChunk(chunk, entityType);
+		int limit = breedingLimitManager.getLimit(entityType);
+		player.sendMessage(lang("breeding.entity-status", Map.of(
+				"entity", entityType.name(),
+				"current", current,
+				"limit", limit
+		)));
 	}
 
 	private void handleDebug(CommandSender sender, String[] args) {
@@ -463,6 +530,12 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("stats.spawner-async-queued", Map.of(
 				"value", plugin.getSpawnerManager().isAsyncSaveQueued()
 		)));
+		sender.sendMessage(lang("stats.breeding-enabled", Map.of(
+				"value", breedingLimitManager.isEnabled()
+		)));
+		sender.sendMessage(lang("stats.breeding-default-limit", Map.of(
+				"value", breedingLimitManager.getDefaultLimit()
+		)));
 
 	}
 
@@ -479,6 +552,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		int fishRemoved = fishManager.cleanupAndGetRemovedCount();
 		int naturalRemoved = naturalSpawnManager.cleanupAndGetRemovedCount();
 		int spawnerRemoved = plugin.getSpawnerManager().cleanupAndGetRemovedCount();
+		int breedingRemoved = breedingLimitManager.cleanupAndGetRemovedCount();
 
 		plugin.getSpawnerManager().cleanupAndGetRemovedCount();
 		plugin.getSpawnerManager().saveAsync();
@@ -507,6 +581,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				"after", spawnerAfter,
 				"removed", spawnerRemoved
 		)));
+		sender.sendMessage(lang("cleanup.breeding-result", Map.of(
+				"removed", breedingRemoved
+		)));
+
 		sender.sendMessage(lang("command.cleanup-started-save"));
 	}
 
@@ -517,6 +595,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		}
 		fishManager.saveAsync();
 		naturalSpawnManager.saveAsync();
+		breedingLimitManager.saveAsync();
 		plugin.getSpawnerManager().saveAsync();
 		sender.sendMessage(lang("command.save-started"));
 	}
@@ -530,6 +609,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("help.spawnercheck"));
 		sender.sendMessage(lang("help.spawnerreset"));
 		sender.sendMessage(lang("help.spawnerapply"));
+		sender.sendMessage(lang("help.breeding"));
 		sender.sendMessage(lang("help.debug"));
 		sender.sendMessage(lang("help.stats"));
 		sender.sendMessage(lang("help.cleanup"));
@@ -554,7 +634,9 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("stats");
 			suggestions.add("cleanup");
 			suggestions.add("spawnercheck");
+			suggestions.add("spawnerreset");
 			suggestions.add("spawnerapply");
+			suggestions.add("breeding");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");
@@ -606,6 +688,37 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("status");
 
 			String input = args[1].toLowerCase();
+
+			return suggestions.stream()
+					.filter(s -> s.startsWith(input))
+					.toList();
+		}
+
+		if (args.length == 2 && args[0].equalsIgnoreCase("breeding")) {
+			List<String> suggestions = new ArrayList<>();
+
+			suggestions.add("SHEEP");
+			suggestions.add("COW");
+			suggestions.add("CHICKEN");
+			suggestions.add("PIG");
+			suggestions.add("VILLAGER");
+			suggestions.add("ALLAY");
+			suggestions.add("BEE");
+			suggestions.add("HORSE");
+			suggestions.add("DONKEY");
+			suggestions.add("LLAMA");
+			suggestions.add("GOAT");
+			suggestions.add("WOLF");
+			suggestions.add("CAT");
+			suggestions.add("RABBIT");
+			suggestions.add("FOX");
+			suggestions.add("TURTLE");
+			suggestions.add("AXOLOTL");
+			suggestions.add("FROG");
+			suggestions.add("CAMEL");
+			suggestions.add("SNIFFER");
+
+			String input = args[1].toUpperCase();
 
 			return suggestions.stream()
 					.filter(s -> s.startsWith(input))

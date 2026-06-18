@@ -1,5 +1,7 @@
 package basementhost.randomchad;
 
+import basementhost.randomchad.breeding.BreedingLimitListener;
+import basementhost.randomchad.breeding.BreedingLimitManager;
 import basementhost.randomchad.fish.FishListener;
 import basementhost.randomchad.fish.FishManager;
 import basementhost.randomchad.lang.LangManager;
@@ -17,6 +19,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 	private NaturalSpawnManager naturalSpawnManager;
 	private SpawnerManager spawnerManager;
 	private LangManager langManager;
+	private BreedingLimitManager breedingLimitManager;
 
 	private int saveTaskId = -1;
 	private int cleanupTaskId = -1;
@@ -33,6 +36,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 		this.spawnerManager = new SpawnerManager(this);
 		this.spawnerManager.load();
+
+		this.breedingLimitManager = new BreedingLimitManager(this);
+		this.breedingLimitManager.load();
 
 		saveDefaultConfig();
 		langManager = new LangManager(this);
@@ -53,7 +59,17 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				this
 		);
 
-		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(this, fishManager, naturalSpawnManager);
+		Bukkit.getPluginManager().registerEvents(
+				new BreedingLimitListener(this, breedingLimitManager),
+				this
+		);
+
+		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(
+				this,
+				fishManager,
+				naturalSpawnManager,
+				breedingLimitManager
+		);
 		PluginCommand command = getCommand("farmlimiter");
 
 		if (command != null) {
@@ -79,6 +95,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 					fishManager.saveAsync();
 					naturalSpawnManager.saveAsync();
 					spawnerManager.saveAsync();
+					breedingLimitManager.saveAsync();
 				},
 				saveIntervalTicks,
 				saveIntervalTicks
@@ -95,6 +112,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 					fishManager.cleanup();
 					naturalSpawnManager.cleanup();
 					spawnerManager.cleanup();
+					breedingLimitManager.cleanup();
 				},
 				cleanupIntervalTicks,
 				cleanupIntervalTicks
@@ -124,6 +142,10 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			spawnerManager.save();
 		}
 
+		if (breedingLimitManager != null) {
+			breedingLimitManager.save();
+		}
+
 		getLogger().info("FarmLimiter Plugin Disabled!");
 	}
 
@@ -133,5 +155,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 	public SpawnerManager getSpawnerManager() {
 		return spawnerManager;
+	}
+
+	public BreedingLimitManager getBreedingLimitManager() {
+		return breedingLimitManager;
 	}
 }

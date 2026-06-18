@@ -53,12 +53,15 @@ stats:
   spawner-dirty-regions: "&7Spawner_Output_Limit dirty regions: &f{value}"
   spawner-async-running: "&7Spawner_Output_Limit async save running: &f{value}"
   spawner-async-queued: "&7Spawner_Output_Limit async save queued: &f{value}"
+  breeding-enabled: "&7Breeding_Limit enabled: &e{value}"
+  breeding-default-limit: "&7Breeding_Limit default limit: &e{value}"
 
 cleanup:
   header: "&aFarmLimiter cleanup completed:"
   fish-result: "&7Fish_Depletion: &e{before}&7 -> &e{after}&7 removed &e{removed}"
   natural-result: "&7Natural_Spawn_Rate_Limit: &e{before}&7 -> &e{after}&7 removed &e{removed}"
   spawner-result: "&7Spawner_Output_Limit: &f{before}&7 -> &f{after}&7 removed &f{removed}"
+  breeding-result: "&7Breeding_Limit: removed &e{removed}"
 
 help:
   header: "&aFarmLimiter commands:"
@@ -74,6 +77,7 @@ help:
   spawnercheck: "&e/farmlimiter spawnercheck &7- Check the spawner you are looking at"
   spawnerreset: "&e/farmlimiter spawnerreset &7- Reset the spawner you are looking at"
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
+  breeding: "&e/farmlimiter breeding &7- Breeding limits are checked automatically"
 
 spawnercheck:
   header: "&6Spawner check:"
@@ -103,3 +107,12 @@ spawnerapply:
 
 spawnerreset:
   success: "&aReset &f{entity} &aspawner resource to &f{current} / {max}&a."
+
+breeding:
+  actionbar-blocked: "&cToo many {entity} in this chunk: {current}/{limit}."
+  chat-blocked: "&cBreeding blocked: this chunk already has &f{current}/{limit} &c{entity}."
+  header: "&aCurrent chunk breeding limits:"
+  world: "&7World: &e{world}"
+  chunk: "&7Chunk X: &e{x}&7, Z: &e{z}"
+  unknown-entity: "&cUnknown entity type: &e{entity}"
+  entity-status: "&7{entity}: &e{current}&7 / &e{limit}"
