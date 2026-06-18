@@ -2,18 +2,20 @@ package basementhost.randomchad.breeding;
 
 import basementhost.randomchad.FarmLimiterPlugin;
 import org.bukkit.Chunk;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
 import java.io.File;
-import java.util.Locale;
+import java.util.*;
 
 public class BreedingLimitManager {
 
 	private final FarmLimiterPlugin plugin;
 	private File configFile;
 	private YamlConfiguration moduleConfig;
+	private final Set<EntityType> supportedEntityTypes = new LinkedHashSet<>();
 
 	public BreedingLimitManager(FarmLimiterPlugin plugin) {
 		this.plugin = plugin;
@@ -33,6 +35,44 @@ public class BreedingLimitManager {
 		}
 
 		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+		loadSupportedEntityTypes();
+	}
+
+	private void loadSupportedEntityTypes() {
+		supportedEntityTypes.clear();
+
+		supportedEntityTypes.add(EntityType.ALLAY);
+		supportedEntityTypes.add(EntityType.ARMADILLO);
+		supportedEntityTypes.add(EntityType.AXOLOTL);
+		supportedEntityTypes.add(EntityType.BEE);
+		supportedEntityTypes.add(EntityType.CAMEL);
+		supportedEntityTypes.add(EntityType.CAT);
+		supportedEntityTypes.add(EntityType.CHICKEN);
+		supportedEntityTypes.add(EntityType.COW);
+		supportedEntityTypes.add(EntityType.DONKEY);
+		supportedEntityTypes.add(EntityType.FOX);
+		supportedEntityTypes.add(EntityType.FROG);
+		supportedEntityTypes.add(EntityType.GOAT);
+		supportedEntityTypes.add(EntityType.HOGLIN);
+		supportedEntityTypes.add(EntityType.HORSE);
+		supportedEntityTypes.add(EntityType.LLAMA);
+		supportedEntityTypes.add(EntityType.MULE);
+		supportedEntityTypes.add(EntityType.OCELOT);
+		supportedEntityTypes.add(EntityType.PANDA);
+		supportedEntityTypes.add(EntityType.PIG);
+		supportedEntityTypes.add(EntityType.RABBIT);
+		supportedEntityTypes.add(EntityType.SHEEP);
+		supportedEntityTypes.add(EntityType.SNIFFER);
+		supportedEntityTypes.add(EntityType.STRIDER);
+		supportedEntityTypes.add(EntityType.TURTLE);
+		supportedEntityTypes.add(EntityType.VILLAGER);
+		supportedEntityTypes.add(EntityType.WOLF);
+
+		supportedEntityTypes.addAll(getConfiguredEntityTypes());
+	}
+
+	public Set<EntityType> getSupportedEntityTypes() {
+		return new LinkedHashSet<>(supportedEntityTypes);
 	}
 
 	public boolean isEnabled() {
@@ -91,5 +131,27 @@ public class BreedingLimitManager {
 
 	public int cleanupAndGetRemovedCount() {
 		return 0;
+	}
+
+	public List<EntityType> getConfiguredEntityTypes() {
+		List<EntityType> entityTypes = new ArrayList<>();
+
+		ConfigurationSection section = moduleConfig.getConfigurationSection("per-entity");
+
+		if (section == null) {
+			return entityTypes;
+		}
+
+		for (String key : section.getKeys(false)) {
+			try {
+				EntityType entityType = EntityType.valueOf(key.toUpperCase(Locale.ROOT));
+				entityTypes.add(entityType);
+			} catch (IllegalArgumentException exception) {
+				plugin.getLogger().warning("Unknown breeding-limit entity type in config: " + key);
+			}
+		}
+
+		entityTypes.sort(Comparator.comparing(EntityType::name));
+		return entityTypes;
 	}
 }

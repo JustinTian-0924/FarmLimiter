@@ -268,9 +268,17 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		)));
 
 		if (args.length >= 2) {
+			if (args[1].equalsIgnoreCase("all")) {
+				for (EntityType entityType : breedingLimitManager.getSupportedEntityTypes()) {
+					int current = breedingLimitManager.countSameTypeInChunk(chunk, entityType);
+					if (current > 0) {
+						sendBreedingEntityStatus(player, chunk, entityType);
+					}
+				}
+				return;
+			}
 			String entityName = args[1].toUpperCase();
 			EntityType entityType;
-
 			try {
 				entityType = EntityType.valueOf(entityName);
 			} catch (IllegalArgumentException exception) {
@@ -279,17 +287,19 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				)));
 				return;
 			}
-
 			sendBreedingEntityStatus(player, chunk, entityType);
 			return;
 		}
 
-		sendBreedingEntityStatus(player, chunk, EntityType.SHEEP);
-		sendBreedingEntityStatus(player, chunk, EntityType.COW);
-		sendBreedingEntityStatus(player, chunk, EntityType.CHICKEN);
-		sendBreedingEntityStatus(player, chunk, EntityType.PIG);
-		sendBreedingEntityStatus(player, chunk, EntityType.VILLAGER);
-		sendBreedingEntityStatus(player, chunk, EntityType.ALLAY);
+		List<EntityType> configuredEntityTypes = breedingLimitManager.getConfiguredEntityTypes();
+		if (configuredEntityTypes.isEmpty()) {
+			player.sendMessage(lang("breeding.no-configured-entities"));
+			return;
+		}
+		for (EntityType entityType : configuredEntityTypes) {
+			sendBreedingEntityStatus(player, chunk, entityType);
+		}
+
 	}
 
 	private void sendBreedingEntityStatus(Player player, Chunk chunk, EntityType entityType) {
@@ -696,7 +706,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args.length == 2 && args[0].equalsIgnoreCase("breeding")) {
 			List<String> suggestions = new ArrayList<>();
-
+			suggestions.add("all");
 			suggestions.add("SHEEP");
 			suggestions.add("COW");
 			suggestions.add("CHICKEN");

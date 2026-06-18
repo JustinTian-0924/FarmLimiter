@@ -77,7 +77,7 @@ help:
   spawnercheck: "&e/farmlimiter spawnercheck &7- Check the spawner you are looking at"
   spawnerreset: "&e/farmlimiter spawnerreset &7- Reset the spawner you are looking at"
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
-  breeding: "&e/farmlimiter breeding &7- Breeding limits are checked automatically"
+  breeding: "&e/farmlimiter breeding [entity|all] &7- Show current chunk breeding limits"
 
 spawnercheck:
   header: "&6Spawner check:"
@@ -116,3 +116,4 @@ breeding:
   chunk: "&7Chunk X: &e{x}&7, Z: &e{z}"
   unknown-entity: "&cUnknown entity type: &e{entity}"
   entity-status: "&7{entity}: &e{current}&7 / &e{limit}"
+  no-configured-entities: "&eNo per-entity breeding limits are configured."

@@ -114,3 +114,4 @@ breeding:
   chunk: "&7区块 X：&e{x}&7，Z：&e{z}"
   unknown-entity: "&c未知实体类型：&e{entity}"
   entity-status: "&7{entity}：&e{current}&7 / &e{limit}"
+  nbreeding: "&e/farmlimiter breeding [entity|all] &7- 查看当前区块繁殖限制"
