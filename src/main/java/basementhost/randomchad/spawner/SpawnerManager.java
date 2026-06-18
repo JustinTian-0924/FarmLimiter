@@ -830,4 +830,28 @@ public class SpawnerManager {
 		emptyActionbarNotifyTimes.put(spawnerKey, now);
 		return true;
 	}
+
+	public int resetSpawnerResource(Location location, EntityType entityType) {
+		ensureRegionLoaded(location);
+		String spawnerKey = getSpawnerKey(location);
+		String regionId = getRegionId(location);
+		String entityTypeName = entityType.name();
+		SpawnerPool pool = spawnerPools.computeIfAbsent(
+				spawnerKey,
+				key -> createSpawnerPool(regionId, entityTypeName)
+		);
+		int resetResource = getInitialResource(entityTypeName);
+		int maxResource = getMaxResource(entityTypeName);
+		if (maxResource >= 0 && resetResource > maxResource) {
+			resetResource = maxResource;
+		}
+		long now = System.currentTimeMillis();
+		pool.entityTypeName = entityTypeName;
+		pool.resource = resetResource;
+		pool.lastRegenTime = now;
+		pool.lastAccessTime = now;
+		touchRegion(regionId);
+		markRegionDirty(regionId);
+		return pool.resource;
+	}
 }

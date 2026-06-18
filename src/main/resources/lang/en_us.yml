@@ -7,7 +7,7 @@ command:
   cleanup-started-save: "&7Data save has been started asynchronously."
 
 fish:
-  actionbar-depleted: "&cThe fishponds here have dried up. Please wait a while."
+  actionbar-depleted: "&cThe fishing resources here have dried up. Please wait a while."
   header: "&aCurrent chunk fishing resource:"
   world: "&7World: &e{world}"
   chunk: "&7Chunk X: &e{x}&7, Z: &e{z}"
@@ -47,8 +47,9 @@ stats:
   natural-dirty-regions: "&7Natural_Spawn_Rate_Limit dirty regions: &e{value}"
   natural-async-running: "&7Natural_Spawn_Rate_Limit async save running: &e{value}"
   natural-async-queued: "&7Natural_Spawn_Rate_Limit async save queued: &e{value}"
+  natural-spawn-reasons: "&7Natural_Spawn_Rate_Limit handled spawn reasons: &e{value}"
   spawner-tracked-spawners: "&7Spawner_Output_Limit tracked spawners: &f{value}"
-  spawner-loaded-regions: "&7Spawner_Output_Limit loaded regions: &f{loaded} / {max}"
+  spawner-loaded-regions: "&7Spawner_Output_Limit loaded regions: &f{loaded}&7 / &f{max}"
   spawner-dirty-regions: "&7Spawner_Output_Limit dirty regions: &f{value}"
   spawner-async-running: "&7Spawner_Output_Limit async save running: &f{value}"
   spawner-async-queued: "&7Spawner_Output_Limit async save queued: &f{value}"
@@ -57,7 +58,7 @@ cleanup:
   header: "&aFarmLimiter cleanup completed:"
   fish-result: "&7Fish_Depletion: &e{before}&7 -> &e{after}&7 removed &e{removed}"
   natural-result: "&7Natural_Spawn_Rate_Limit: &e{before}&7 -> &e{after}&7 removed &e{removed}"
-  spawner-result: "&7Spawner_Output_Limit: &f{before} -> {after} &7removed &f{removed}"
+  spawner-result: "&7Spawner_Output_Limit: &f{before}&7 -> &f{after}&7 removed &f{removed}"
 
 help:
   header: "&aFarmLimiter commands:"
@@ -71,6 +72,7 @@ help:
   save: "&e/farmlimiter save &7- Save plugin data asynchronously"
   reload: "&e/farmlimiter reload &7- Reload config and data"
   spawnercheck: "&e/farmlimiter spawnercheck &7- Check the spawner you are looking at"
+  spawnerreset: "&e/farmlimiter spawnerreset &7- Reset the spawner you are looking at"
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
 
 spawnercheck:
@@ -97,4 +99,7 @@ spawner:
   empty-actionbar: "&cThis {entity} spawner is out of resources."
 
 spawnerapply:
-  success: "&aHad updated &f{count} &aspawner with new configuration settings"
+  success: "&aApplied spawner behavior settings to &f{count} &aloaded spawners."
+
+spawnerreset:
+  success: "&aReset &f{entity} &aspawner resource to &f{current} / {max}&a."

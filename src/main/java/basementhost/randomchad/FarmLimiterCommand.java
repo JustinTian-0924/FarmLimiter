@@ -92,6 +92,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				handleSpawnerApply(sender);
 				return true;
 
+			case "spawnerreset":
+				handleSpawnerReset(sender);
+				return true;
+
 			default:
 				sender.sendMessage(lang("command.unknown-command", Map.of(
 						"label", label
@@ -361,6 +365,45 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		)));
 	}
 
+	private void handleSpawnerReset(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		if (!(sender instanceof Player player)) {
+			sender.sendMessage(lang("command.player-only"));
+			return;
+		}
+
+		Block targetBlock = player.getTargetBlockExact(10);
+
+		if (targetBlock == null) {
+			player.sendMessage(lang("spawnercheck.no-target"));
+			return;
+		}
+
+		BlockState blockState = targetBlock.getState();
+
+		if (!(blockState instanceof CreatureSpawner spawner)) {
+			player.sendMessage(lang("spawnercheck.not-spawner"));
+			return;
+		}
+
+		Location location = spawner.getLocation();
+		EntityType entityType = spawner.getSpawnedType();
+
+		int resource = plugin.getSpawnerManager().resetSpawnerResource(location, entityType);
+		int maxResource = plugin.getSpawnerManager().getMaxResource(entityType.name());
+
+		plugin.getSpawnerManager().saveAsync();
+
+		player.sendMessage(lang("spawnerreset.success", Map.of(
+				"entity", entityType.name(),
+				"current", resource,
+				"max", maxResource
+		)));
+	}
 	private void handleStats(CommandSender sender) {
 		if (!sender.hasPermission("farmlimiter.admin")) {
 			sender.sendMessage(lang("command.no-permission"));
@@ -485,6 +528,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("help.natural"));
 		sender.sendMessage(lang("help.natural-entity"));
 		sender.sendMessage(lang("help.spawnercheck"));
+		sender.sendMessage(lang("help.spawnerreset"));
 		sender.sendMessage(lang("help.spawnerapply"));
 		sender.sendMessage(lang("help.debug"));
 		sender.sendMessage(lang("help.stats"));
