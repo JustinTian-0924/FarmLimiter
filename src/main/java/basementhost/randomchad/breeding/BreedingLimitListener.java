@@ -9,13 +9,17 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityBreedEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public class BreedingLimitListener implements Listener {
 
 	private final FarmLimiterPlugin plugin;
 	private final BreedingLimitManager breedingLimitManager;
+	private final Map<UUID, Long> lastNotifyTimes = new HashMap<>();
 
 	public BreedingLimitListener(FarmLimiterPlugin plugin, BreedingLimitManager breedingLimitManager) {
 		this.plugin = plugin;
@@ -99,24 +103,42 @@ public class BreedingLimitListener implements Listener {
 	}
 
 	private void notifyPlayer(Player player, EntityType entityType, int current, int limit) {
+		if (isNotifyCoolingDown(player)) {
+			return;
+		}
+		lastNotifyTimes.put(player.getUniqueId(), System.currentTimeMillis());
 		Map<String, Object> placeholders = Map.of(
 				"entity", entityType.name(),
 				"current", current,
 				"limit", limit
 		);
-
 		if (breedingLimitManager.isActionbarNotifyEnabled()) {
 			player.sendActionBar(Component.text(plugin.getLangManager().get(
 					"breeding.actionbar-blocked",
 					placeholders
 			)));
 		}
-
 		if (breedingLimitManager.isChatNotifyEnabled()) {
 			player.sendMessage(Component.text(plugin.getLangManager().get(
 					"breeding.chat-blocked",
 					placeholders
 			)));
 		}
+	}
+
+	private boolean isNotifyCoolingDown(Player player) {
+		int cooldownSeconds = breedingLimitManager.getNotifyCooldownSeconds();
+		if (cooldownSeconds <= 0) {
+			return false;
+		}
+		long now = System.currentTimeMillis();
+		long lastNotifyTime = lastNotifyTimes.getOrDefault(player.getUniqueId(), 0L);
+		long cooldownMillis = cooldownSeconds * 1000L;
+		return now - lastNotifyTime < cooldownMillis;
+	}
+
+	@EventHandler
+	public void onPlayerQuit(PlayerQuitEvent event) {
+		lastNotifyTimes.remove(event.getPlayer().getUniqueId());
 	}
 }

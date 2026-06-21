@@ -64,9 +64,10 @@ per-entity:
 notify:
   # Send an actionbar message to the player when breeding is blocked.
   actionbar: true
-
   # Send a chat message to the player when breeding is blocked.
   chat: false
+  # Minimum seconds between blocked breeding messages for the same player.
+  cooldown-seconds: 3
 
 debug:
   enabled: false

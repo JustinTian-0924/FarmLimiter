@@ -57,6 +57,7 @@ stats:
   breeding-default-limit: "&7Breeding_Limit default limit: &e{value}"
   breeding-count-adults-only: "&7Breeding_Limit count adults only: &e{value}"
   breeding-ignore-named-entities: "&7Breeding_Limit ignore named entities: &e{value}"
+  breeding-notify-cooldown: "&7Breeding_Limit notify cooldown: &e{value}s"
 
 cleanup:
   header: "&aFarmLimiter cleanup completed:"
@@ -79,7 +80,7 @@ help:
   spawnercheck: "&e/farmlimiter spawnercheck &7- Check the spawner you are looking at"
   spawnerreset: "&e/farmlimiter spawnerreset &7- Reset the spawner you are looking at"
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
-  breeding: "&e/farmlimiter breeding [entity|all] &7- Show current chunk breeding limits"
+  breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- Show or manage breeding limits"
 
 spawnercheck:
   header: "&6Spawner check:"
@@ -119,3 +120,14 @@ breeding:
   unknown-entity: "&cUnknown entity type: &e{entity}"
   entity-status: "&7{entity}: &e{current}&7 / &e{limit}"
   no-configured-entities: "&eNo per-entity breeding limits are configured."
+  reload-success: "&aBreeding limit module reloaded."
+  debug-header: "&aBreeding limit debug:"
+  debug-enabled: "&7Enabled: &e{value}"
+  debug-default-limit: "&7Default limit: &e{value}"
+  debug-count-adults-only: "&7Count adults only: &e{value}"
+  debug-ignore-named-entities: "&7Ignore named entities: &e{value}"
+  debug-notify-cooldown: "&7Notify cooldown: &e{value}s"
+  debug-actionbar: "&7Actionbar notify: &e{value}"
+  debug-chat: "&7Chat notify: &e{value}"
+  unknown-sub-command: "&cUnknown breeding sub-command: &e{subcommand}&c. Try &e/farmlimiter breeding help&c."
+  no-entities-in-chunk: "&eNo supported breeding entities found in this chunk."

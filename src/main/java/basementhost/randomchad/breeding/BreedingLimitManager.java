@@ -34,6 +34,10 @@ public class BreedingLimitManager {
 		return moduleConfig.getString("bypass-permission", "farmlimiter.breeding.bypass");
 	}
 
+	public int getNotifyCooldownSeconds() {
+		return Math.max(0, moduleConfig.getInt("notify.cooldown-seconds", 3));
+	}
+
 	public void load() {
 		File modulesFolder = new File(plugin.getDataFolder(), "modules");
 

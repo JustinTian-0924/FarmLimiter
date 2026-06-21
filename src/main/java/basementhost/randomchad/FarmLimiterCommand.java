@@ -246,18 +246,23 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 	}
 
 	private void handleBreeding(CommandSender sender, String[] args) {
+		if (args.length >= 2 && args[1].equalsIgnoreCase("reload")) {
+			handleBreedingReload(sender);
+			return;
+		}
+		if (args.length >= 2 && args[1].equalsIgnoreCase("debug")) {
+			handleBreedingDebug(sender);
+			return;
+		}
 		if (!(sender instanceof Player player)) {
 			sender.sendMessage(lang("command.player-only"));
 			return;
 		}
-
 		if (!sender.hasPermission("farmlimiter.use")) {
 			sender.sendMessage(lang("command.no-permission"));
 			return;
 		}
-
 		Chunk chunk = player.getLocation().getChunk();
-
 		player.sendMessage(lang("breeding.header"));
 		player.sendMessage(lang("breeding.world", Map.of(
 				"world", chunk.getWorld().getName()
@@ -268,17 +273,37 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		)));
 
 		if (args.length >= 2) {
-			if (args[1].equalsIgnoreCase("all")) {
+			String breedingArgument = args[1];
+
+			if (breedingArgument.equalsIgnoreCase("all")) {
+				boolean foundAny = false;
+
 				for (EntityType entityType : breedingLimitManager.getSupportedEntityTypes()) {
 					int current = breedingLimitManager.countSameTypeInChunk(chunk, entityType);
+
 					if (current > 0) {
 						sendBreedingEntityStatus(player, chunk, entityType);
+						foundAny = true;
 					}
 				}
+
+				if (!foundAny) {
+					player.sendMessage(lang("breeding.no-entities-in-chunk"));
+				}
+
 				return;
 			}
-			String entityName = args[1].toUpperCase();
+
+			if (isReservedBreedingSubCommand(breedingArgument)) {
+				player.sendMessage(lang("breeding.unknown-sub-command", Map.of(
+						"subcommand", breedingArgument
+				)));
+				return;
+			}
+
+			String entityName = breedingArgument.toUpperCase();
 			EntityType entityType;
+
 			try {
 				entityType = EntityType.valueOf(entityName);
 			} catch (IllegalArgumentException exception) {
@@ -287,6 +312,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				)));
 				return;
 			}
+
 			sendBreedingEntityStatus(player, chunk, entityType);
 			return;
 		}
@@ -300,6 +326,54 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			sendBreedingEntityStatus(player, chunk, entityType);
 		}
 
+	}
+
+	private boolean isReservedBreedingSubCommand(String argument) {
+		String lowerArgument = argument.toLowerCase();
+		return lowerArgument.equals("reload")
+				|| lowerArgument.equals("debug")
+				|| lowerArgument.equals("save")
+				|| lowerArgument.equals("stats")
+				|| lowerArgument.equals("help");
+	}
+
+	private void handleBreedingReload(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+		breedingLimitManager.load();
+		sender.sendMessage(lang("breeding.reload-success"));
+	}
+
+	private void handleBreedingDebug(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		sender.sendMessage(lang("breeding.debug-header"));
+		sender.sendMessage(lang("breeding.debug-enabled", Map.of(
+				"value", breedingLimitManager.isEnabled()
+		)));
+		sender.sendMessage(lang("breeding.debug-default-limit", Map.of(
+				"value", breedingLimitManager.getDefaultLimit()
+		)));
+		sender.sendMessage(lang("breeding.debug-count-adults-only", Map.of(
+				"value", breedingLimitManager.shouldCountAdultsOnly()
+		)));
+		sender.sendMessage(lang("breeding.debug-ignore-named-entities", Map.of(
+				"value", breedingLimitManager.shouldIgnoreNamedEntities()
+		)));
+		sender.sendMessage(lang("breeding.debug-notify-cooldown", Map.of(
+				"value", breedingLimitManager.getNotifyCooldownSeconds()
+		)));
+		sender.sendMessage(lang("breeding.debug-actionbar", Map.of(
+				"value", breedingLimitManager.isActionbarNotifyEnabled()
+		)));
+		sender.sendMessage(lang("breeding.debug-chat", Map.of(
+				"value", breedingLimitManager.isChatNotifyEnabled()
+		)));
 	}
 
 	private void sendBreedingEntityStatus(Player player, Chunk chunk, EntityType entityType) {
@@ -552,6 +626,9 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("stats.breeding-ignore-named-entities", Map.of(
 				"value", breedingLimitManager.shouldIgnoreNamedEntities()
 		)));
+		sender.sendMessage(lang("stats.breeding-notify-cooldown", Map.of(
+				"value", breedingLimitManager.getNotifyCooldownSeconds()
+		)));
 
 	}
 
@@ -712,6 +789,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args.length == 2 && args[0].equalsIgnoreCase("breeding")) {
 			List<String> suggestions = new ArrayList<>();
+			if (sender.hasPermission("farmlimiter.admin")) {
+				suggestions.add("reload");
+				suggestions.add("debug");
+			}
 			suggestions.add("all");
 			suggestions.add("SHEEP");
 			suggestions.add("COW");
