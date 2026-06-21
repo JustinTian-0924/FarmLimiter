@@ -54,6 +54,8 @@ stats:
   spawner-async-queued: "&7刷怪笼产出限制 异步保存已排队: &f{value}"
   breeding-enabled: "&7繁殖限制 已启用：&e{value}"
   breeding-default-limit: "&7繁殖限制 默认上限：&e{value}"
+  breeding-count-adults-only: "&7繁殖限制 仅统计成年实体：&e{value}"
+  breeding-ignore-named-entities: "&7繁殖限制 忽略命名实体：&e{value}"
 
 cleanup:
   header: "&aFarmLimiter 清理完成："

@@ -1,5 +1,5 @@
 name: FarmLimiter
-version: 0.7.1
+version: 0.7.2
 main: basementhost.randomchad.FarmLimiterPlugin
 api-version: '26.1.2'
 description: Limiting and nerfing farm scale and efficiency for balancing and server resources optimization
@@ -20,4 +20,8 @@ permissions:
 
   farmlimiter.admin:
     description: Allows using FarmLimiter admin commands
+    default: op
+
+  farmlimiter.breeding.bypass:
+    description: Allows bypassing breeding limits.
     default: op

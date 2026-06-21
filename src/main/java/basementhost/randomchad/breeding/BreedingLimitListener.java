@@ -28,6 +28,16 @@ public class BreedingLimitListener implements Listener {
 			return;
 		}
 
+		if (event.getBreeder() instanceof Player player
+				&& player.hasPermission("farmlimiter.breeding.bypass")) {
+			return;
+		}
+
+		if (event.getBreeder() instanceof Player player
+				&& player.hasPermission(breedingLimitManager.getBypassPermission())) {
+			return;
+		}
+
 		EntityType entityType = event.getEntityType();
 		Chunk chunk = event.getEntity().getLocation().getChunk();
 

@@ -55,6 +55,8 @@ stats:
   spawner-async-queued: "&7Spawner_Output_Limit async save queued: &f{value}"
   breeding-enabled: "&7Breeding_Limit enabled: &e{value}"
   breeding-default-limit: "&7Breeding_Limit default limit: &e{value}"
+  breeding-count-adults-only: "&7Breeding_Limit count adults only: &e{value}"
+  breeding-ignore-named-entities: "&7Breeding_Limit ignore named entities: &e{value}"
 
 cleanup:
   header: "&aFarmLimiter cleanup completed:"

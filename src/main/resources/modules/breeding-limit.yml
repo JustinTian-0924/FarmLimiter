@@ -1,11 +1,19 @@
 # Whether the breeding limit module is enabled.
 enabled: true
-
+# Player with this permission will bypass the breeding limitation
+bypass-permission: "farmlimiter.breeding.bypass"
 # Default per-chunk limit for each breedable entity type.
 # Example:
 # If this is 96, players cannot breed more cows in a chunk that already has 96 or more cows.
 default-limit: 96
-
+# Whether only adult entities should be counted toward the limit.
+# true: baby animals are ignored when counting.
+# false: both baby and adult entities are counted.
+count-adults-only: false
+# Whether named entities should be ignored when counting.
+# true: entities with custom names do not count toward the breeding limit.
+# false: named entities are counted normally.
+ignore-named-entities: false
 # Per-entity limits.
 # Entity names must use Bukkit EntityType names, such as SHEEP, VILLAGER, ALLAY.
 #

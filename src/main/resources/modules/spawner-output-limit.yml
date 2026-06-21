@@ -12,7 +12,7 @@ debug:
 # Default resource settings for all spawners.
 default:
   # Resource amount given to a newly placed or newly discovered spawner.
-  initial-resource: 400
+  initial-resource: 250
 
   # Maximum resource this spawner can regenerate to.
   max-resource: 1000
@@ -21,7 +21,7 @@ default:
   regen-amount: 2
 
   # Seconds between each regeneration cycle.
-  regen-interval-seconds: 60
+  regen-interval-seconds: 90
   #Notify player in certain raidus when the spawner is depleated
 notify:
   empty-actionbar:
@@ -46,10 +46,10 @@ behavior:
 # Entity names must use Bukkit EntityType names, such as ZOMBIE, SKELETON, CREEPER.
 per-entity:
   ZOMBIE:
-    initial-resource: 600
+    initial-resource: 400
     max-resource: 1500
     regen-amount: 3
-    regen-interval-seconds: 60
+    regen-interval-seconds: 90
     behavior:
       required-player-range: 24
       spawn-range: 4
@@ -59,10 +59,10 @@ per-entity:
       max-spawn-delay-seconds: 30
 
   SKELETON:
-    initial-resource: 500
+    initial-resource: 250
     max-resource: 1000
-    regen-amount: 4
-    regen-interval-seconds: 60
+    regen-amount: 2
+    regen-interval-seconds: 90
 
 cleanup:
   # Whether full spawner records should be removed from memory and storage cleanup.

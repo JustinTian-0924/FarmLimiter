@@ -546,6 +546,12 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("stats.breeding-default-limit", Map.of(
 				"value", breedingLimitManager.getDefaultLimit()
 		)));
+		sender.sendMessage(lang("stats.breeding-count-adults-only", Map.of(
+				"value", breedingLimitManager.shouldCountAdultsOnly()
+		)));
+		sender.sendMessage(lang("stats.breeding-ignore-named-entities", Map.of(
+				"value", breedingLimitManager.shouldIgnoreNamedEntities()
+		)));
 
 	}
 

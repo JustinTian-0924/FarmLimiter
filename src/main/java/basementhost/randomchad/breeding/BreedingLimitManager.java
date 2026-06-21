@@ -4,6 +4,7 @@ import basementhost.randomchad.FarmLimiterPlugin;
 import org.bukkit.Chunk;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Ageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
@@ -19,6 +20,18 @@ public class BreedingLimitManager {
 
 	public BreedingLimitManager(FarmLimiterPlugin plugin) {
 		this.plugin = plugin;
+	}
+
+	public boolean shouldCountAdultsOnly() {
+		return moduleConfig.getBoolean("count-adults-only", false);
+	}
+
+	public boolean shouldIgnoreNamedEntities() {
+		return moduleConfig.getBoolean("ignore-named-entities", false);
+	}
+
+	public String getBypassPermission() {
+		return moduleConfig.getString("bypass-permission", "farmlimiter.breeding.bypass");
 	}
 
 	public void load() {
@@ -106,13 +119,20 @@ public class BreedingLimitManager {
 
 	public int countSameTypeInChunk(Chunk chunk, EntityType entityType) {
 		int count = 0;
-
 		for (Entity entity : chunk.getEntities()) {
-			if (entity.getType() == entityType) {
-				count++;
+			if (entity.getType() != entityType) {
+				continue;
 			}
+			if (shouldIgnoreNamedEntities() && entity.customName() != null) {
+				continue;
+			}
+			if (shouldCountAdultsOnly()
+					&& entity instanceof Ageable ageable
+					&& !ageable.isAdult()) {
+				continue;
+			}
+			count++;
 		}
-
 		return count;
 	}
 

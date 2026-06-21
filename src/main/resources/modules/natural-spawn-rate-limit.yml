@@ -103,7 +103,7 @@ per-entity:
 
   PILLAGER:
     max-resource: 80
-    regen-interval-seconds: 120
+    regen-interval-seconds: 30
     regen-amount: 4
 
   VINDICATOR:
@@ -121,8 +121,13 @@ per-entity:
     regen-interval-seconds: 120
     regen-amount: 1
 
+  WITCH:
+    max-resource: 24
+    regen-interval-seconds: 120
+    regen-amount: 2
+
   IRON_GOLEM:
-    max-resource: 20
+    max-resource: 32
     regen-interval-seconds: 120
     regen-amount: 1
 
@@ -139,7 +144,7 @@ per-entity:
   ZOMBIFIED_PIGLIN:
     max-resource: 180
     regen-interval-seconds: 60
-    regen-amount: 6
+    regen-amount: 3
 
   ENDERMAN:
     max-resource: 250
@@ -149,21 +154,21 @@ per-entity:
   GUARDIAN:
     max-resource: 180
     regen-interval-seconds: 30
-    regen-amount: 3
+    regen-amount: 2
 
   COD:
     max-resource: 48
-    regen-interval-seconds: 90
+    regen-interval-seconds: 120
     regen-amount: 4
 
   SALMON:
     max-resource: 32
-    regen-interval-seconds: 90
+    regen-interval-seconds: 120
     regen-amount: 4
 
   PUFFERFISH:
     max-resource: 24
-    regen-interval-seconds: 90
+    regen-interval-seconds: 120
     regen-amount: 2
 
   TROPICAL_FISH:
@@ -179,6 +184,16 @@ per-entity:
   SHULKER:
     max-resource: 16
     regen-interval-seconds: 120
+    regen-amount: 2
+
+  SQUID:
+    max-resource: 32
+    regen-interval-seconds: 60
+    regen-amount: 2
+
+  GLOWING_SQUID:
+    max-resource: 32
+    regen-interval-seconds: 60
     regen-amount: 2
 
 cleanup:
