@@ -79,6 +79,7 @@ help:
   spawnercheck: "&e/farmlimiter spawnercheck &7- 查看准星指向的刷怪笼信息"
   spawnerapply: "&e/farmlimiter spawnerapply &7- 将刷怪笼行为设置应用到已加载刷怪笼"
   breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- 查看或管理繁殖限制"
+  chunkmob: "&e/farmlimiter chunkmob [all|实体|分组] &7- 查看当前区块实体上限"
 
 spawnercheck:
   header: "&6刷怪笼检查:"
@@ -129,3 +130,13 @@ breeding:
   debug-chat: "&7聊天栏提示：&e{value}"
   unknown-sub-command: "&c未知的繁殖限制子命令：&e{subcommand}&c。可尝试 &e/farmlimiter breeding help&c。"
   no-entities-in-chunk: "&e当前区块没有找到支持繁殖限制的实体。"
+
+chunkmob:
+  header: "&a当前区块实体上限："
+  world: "&7世界：&e{world}"
+  chunk: "&7区块 X：&e{x}&7，Z：&e{z}"
+  total-status: "&7总 LivingEntity：&e{current}&7 / 软上限 &e{soft}&7 / 硬上限 &e{hard}"
+  group-status: "&7分组 {group}：&e{current}&7 / 软上限 &e{soft}&7 / 硬上限 &e{hard}"
+  entity-status: "&7{entity}：&e{current}&7 / 软上限 &e{soft}&7 / 硬上限 &e{hard}"
+  unknown-target: "&c未知的 chunkmob 查询目标：&e{target}"
+  no-entity-rule: "&e没有为 &f{entity}&e 配置单独实体规则。"

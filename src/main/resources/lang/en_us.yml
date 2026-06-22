@@ -81,6 +81,7 @@ help:
   spawnerreset: "&e/farmlimiter spawnerreset &7- Reset the spawner you are looking at"
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
   breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- Show or manage breeding limits"
+  chunkmob: "&e/farmlimiter chunkmob [all|entity|group] &7- Show current chunk mob limits"
 
 spawnercheck:
   header: "&6Spawner check:"
@@ -131,3 +132,13 @@ breeding:
   debug-chat: "&7Chat notify: &e{value}"
   unknown-sub-command: "&cUnknown breeding sub-command: &e{subcommand}&c. Try &e/farmlimiter breeding help&c."
   no-entities-in-chunk: "&eNo supported breeding entities found in this chunk."
+
+chunkmob:
+  header: "&aCurrent chunk mob limits:"
+  world: "&7World: &e{world}"
+  chunk: "&7Chunk X: &e{x}&7, Z: &e{z}"
+  total-status: "&7Total LivingEntity: &e{current}&7 / soft &e{soft}&7 / hard &e{hard}"
+  group-status: "&7Group {group}: &e{current}&7 / soft &e{soft}&7 / hard &e{hard}"
+  entity-status: "&7{entity}: &e{current}&7 / soft &e{soft}&7 / hard &e{hard}"
+  unknown-target: "&cUnknown chunkmob target: &e{target}"
+  no-entity-rule: "&eNo per-entity rule configured for &f{entity}&e."

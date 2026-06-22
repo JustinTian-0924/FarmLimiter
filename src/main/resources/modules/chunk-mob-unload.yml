@@ -1,0 +1,65 @@
+enabled: true
+
+limits:
+  total:
+    soft: 256
+    hard: 384
+
+  groups:
+    farm_animal:
+      soft: 128
+      hard: 192
+      entities:
+        - CHICKEN
+        - PIG
+        - COW
+        - SHEEP
+        - RABBIT
+        - GOAT
+        - ALLAY
+        - VILLAGER
+
+    hostile:
+      soft: 128
+      hard: 256
+      entities:
+        - ZOMBIE
+        - SKELETON
+        - CREEPER
+        - SPIDER
+        - ENDERMAN
+        - BLAZE
+
+  per-entity:
+    ZOMBIE:
+      soft: 64
+      hard: 128
+    SKELETON:
+      soft: 64
+      hard: 128
+    CREEPER:
+      soft: 64
+      hard: 128
+    COW:
+      soft: 48
+      hard: 64
+    SHEEP:
+      soft: 48
+      hard: 64
+    CHICKEN:
+      soft: 72
+      hard: 96
+    VILLAGER:
+      soft: 24
+      hard: 32
+
+cleanup:
+  remove-named-entities: true
+  remove-tamed-entities: true
+
+  # Reserved for later steps.
+  # NORMAL_FIRST, NAMED_SECOND, TAMED_LAST
+  priority-mode: "NORMAL_FIRST"
+
+debug:
+  enabled: false

@@ -1,6 +1,9 @@
 package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitManager;
+import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
+import basementhost.randomchad.chunkmobunload.ChunkMobUnloadRule;
+import basementhost.randomchad.chunkmobunload.ChunkMobUnloadUtil;
 import basementhost.randomchad.fish.FishManager;
 import basementhost.randomchad.natural.NaturalSpawnManager;
 import net.kyori.adventure.text.Component;
@@ -18,9 +21,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
@@ -28,6 +29,8 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 	private final FishManager fishManager;
 	private final NaturalSpawnManager naturalSpawnManager;
 	private final BreedingLimitManager breedingLimitManager;
+	private final ChunkMobUnloadManager chunkMobUnloadManager;
+	private final ChunkMobUnloadUtil chunkMobUnloadUtil = new ChunkMobUnloadUtil();
 
 	public FarmLimiterCommand(
 			FarmLimiterPlugin plugin,
@@ -39,6 +42,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		this.fishManager = fishManager;
 		this.naturalSpawnManager = naturalSpawnManager;
 		this.breedingLimitManager = breedingLimitManager;
+		this.chunkMobUnloadManager = plugin.getChunkMobUnloadManager();
 	}
 
 	@Override
@@ -102,6 +106,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 			case "breeding":
 				handleBreeding(sender, args);
+				return true;
+
+			case "chunkmob":
+				handleChunkMob(sender, args);
 				return true;
 
 			default:
@@ -703,6 +711,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("help.spawnerreset"));
 		sender.sendMessage(lang("help.spawnerapply"));
 		sender.sendMessage(lang("help.breeding"));
+		sender.sendMessage(lang("help.chunkmob"));
 		sender.sendMessage(lang("help.debug"));
 		sender.sendMessage(lang("help.stats"));
 		sender.sendMessage(lang("help.cleanup"));
@@ -730,6 +739,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("spawnerreset");
 			suggestions.add("spawnerapply");
 			suggestions.add("breeding");
+			suggestions.add("chunkmob");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");
@@ -822,6 +832,23 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 					.toList();
 		}
 
+		if (args.length == 2 && args[0].equalsIgnoreCase("chunkmob")) {
+			List<String> suggestions = new ArrayList<>();
+			suggestions.add("all");
+			suggestions.add("farm_animal");
+			suggestions.add("hostile");
+			suggestions.add("ZOMBIE");
+			suggestions.add("SKELETON");
+			suggestions.add("CREEPER");
+			suggestions.add("COW");
+			suggestions.add("SHEEP");
+			suggestions.add("VILLAGER");
+			String input = args[1].toLowerCase(Locale.ROOT);
+			return suggestions.stream()
+					.filter(s -> s.toLowerCase(Locale.ROOT).startsWith(input))
+					.toList();
+		}
+
 		return new ArrayList<>();
 	}
 
@@ -841,6 +868,124 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		int appliedCount = plugin.getSpawnerManager().applyLoadedSpawnerSettings();
 		sender.sendMessage(lang("spawnerapply.success", Map.of(
 				"count", appliedCount
+		)));
+	}
+
+	private void handleChunkMob(CommandSender sender, String[] args) {
+		if (!(sender instanceof Player player)) {
+			sender.sendMessage(lang("command.player-only"));
+			return;
+		}
+
+		if (!sender.hasPermission("farmlimiter.use")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		Chunk chunk = player.getLocation().getChunk();
+
+		player.sendMessage(lang("chunkmob.header"));
+		player.sendMessage(lang("chunkmob.world", Map.of(
+				"world", chunk.getWorld().getName()
+		)));
+		player.sendMessage(lang("chunkmob.chunk", Map.of(
+				"x", chunk.getX(),
+				"z", chunk.getZ()
+		)));
+
+		if (args.length >= 2) {
+			handleChunkMobTarget(player, chunk, args[1]);
+			return;
+		}
+
+		sendChunkMobTotalStatus(player, chunk);
+	}
+
+	private void handleChunkMobTarget(Player player, Chunk chunk, String target) {
+		if (target.equalsIgnoreCase("all")) {
+			sendChunkMobTotalStatus(player, chunk);
+			sendChunkMobGroupStatuses(player, chunk);
+			sendChunkMobEntityStatuses(player, chunk);
+			return;
+		}
+
+		if (chunkMobUnloadManager.hasGroup(target)) {
+			sendChunkMobGroupStatus(player, chunk, target);
+			return;
+		}
+
+		EntityType entityType;
+
+		try {
+			entityType = EntityType.valueOf(target.toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			player.sendMessage(lang("chunkmob.unknown-target", Map.of(
+					"target", target
+			)));
+			return;
+		}
+
+		ChunkMobUnloadRule rule = chunkMobUnloadManager.getEntityRule(entityType);
+
+		if (rule == null) {
+			player.sendMessage(lang("chunkmob.no-entity-rule", Map.of(
+					"entity", entityType.name()
+			)));
+			return;
+		}
+
+		sendChunkMobEntityStatus(player, chunk, entityType, rule);
+	}
+
+	private void sendChunkMobTotalStatus(Player player, Chunk chunk) {
+		ChunkMobUnloadRule rule = chunkMobUnloadManager.getTotalRule();
+		int current = chunkMobUnloadUtil.countLivingEntities(chunk);
+
+		player.sendMessage(lang("chunkmob.total-status", Map.of(
+				"current", current,
+				"soft", rule.getSoftLimit(),
+				"hard", rule.getHardLimit()
+		)));
+	}
+
+	private void sendChunkMobGroupStatuses(Player player, Chunk chunk) {
+		for (Map.Entry<String, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getGroupRules().entrySet()) {
+			sendChunkMobGroupStatus(player, chunk, entry.getKey());
+		}
+	}
+
+	private void sendChunkMobGroupStatus(Player player, Chunk chunk, String groupName) {
+		ChunkMobUnloadRule rule = chunkMobUnloadManager.getGroupRule(groupName);
+		Set<EntityType> entityTypes = chunkMobUnloadManager.getGroupEntities(groupName);
+
+		if (rule == null) {
+			return;
+		}
+
+		int current = chunkMobUnloadUtil.countGroup(chunk, entityTypes);
+
+		player.sendMessage(lang("chunkmob.group-status", Map.of(
+				"group", groupName,
+				"current", current,
+				"soft", rule.getSoftLimit(),
+				"hard", rule.getHardLimit()
+		)));
+	}
+
+	private void sendChunkMobEntityStatuses(Player player, Chunk chunk) {
+		for (Map.Entry<EntityType, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getEntityRules().entrySet()) {
+			sendChunkMobEntityStatus(player, chunk, entry.getKey(), entry.getValue());
+		}
+	}
+
+	private void sendChunkMobEntityStatus(Player player, Chunk chunk, EntityType entityType, ChunkMobUnloadRule rule) {
+		int current = chunkMobUnloadUtil.countEntityType(chunk, entityType);
+
+		player.sendMessage(lang("chunkmob.entity-status", Map.of(
+				"entity", entityType.name(),
+				"current", current,
+				"soft", rule.getSoftLimit(),
+				"hard", rule.getHardLimit()
 		)));
 	}
 }
