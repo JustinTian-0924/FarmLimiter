@@ -142,3 +142,4 @@ chunkmob:
   entity-status: "&7{entity}: &e{current}&7 / soft &e{soft}&7 / hard &e{hard}"
   unknown-target: "&cUnknown chunkmob target: &e{target}"
   no-entity-rule: "&eNo per-entity rule configured for &f{entity}&e."
+  spawn-blocked: "&cThis chunk is over the mob soft limit. Cannot spawn more {entity} here."

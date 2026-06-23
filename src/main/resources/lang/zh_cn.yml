@@ -140,3 +140,4 @@ chunkmob:
   entity-status: "&7{entity}：&e{current}&7 / 软上限 &e{soft}&7 / 硬上限 &e{hard}"
   unknown-target: "&c未知的 chunkmob 查询目标：&e{target}"
   no-entity-rule: "&e没有为 &f{entity}&e 配置单独实体规则。"
+  spawn-blocked: "&c当前区块已超过实体软上限，无法继续生成 {entity}。"

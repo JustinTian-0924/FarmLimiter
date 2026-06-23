@@ -58,9 +58,9 @@ over-soft-limit:
   block-natural-spawn: true
 
   # Reserved for later steps.
-  block-breeding: false
-  block-spawner: false
-  block-spawn-egg: false
+  block-breeding: true
+  block-spawner: true
+  block-spawn-egg: true
 
 cleanup:
   remove-named-entities: true

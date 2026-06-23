@@ -32,6 +32,18 @@ public class ChunkMobUnloadManager {
 		return moduleConfig.getBoolean("over-soft-limit.block-natural-spawn", true);
 	}
 
+	public boolean shouldBlockBreeding() {
+		return moduleConfig.getBoolean("over-soft-limit.block-breeding", true);
+	}
+
+	public boolean shouldBlockSpawner() {
+		return moduleConfig.getBoolean("over-soft-limit.block-spawner", true);
+	}
+
+	public boolean shouldBlockSpawnEgg() {
+		return moduleConfig.getBoolean("over-soft-limit.block-spawn-egg", true);
+	}
+
 	public void load() {
 		if (!configFile.exists()) {
 			plugin.saveResource("modules/chunk-mob-unload.yml", false);
