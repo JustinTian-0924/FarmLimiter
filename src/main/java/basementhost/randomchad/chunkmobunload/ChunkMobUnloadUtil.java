@@ -1,10 +1,10 @@
 package basementhost.randomchad.chunkmobunload;
 
 import org.bukkit.Chunk;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -79,5 +79,67 @@ public class ChunkMobUnloadUtil {
 		}
 
 		return false;
+	}
+
+	public List<LivingEntity> getRemovableLivingEntities(
+			Chunk chunk,
+			ChunkMobUnloadManager manager
+	) {
+		List<LivingEntity> entities = new ArrayList<>();
+
+		for (Entity entity : chunk.getEntities()) {
+			if (!(entity instanceof LivingEntity livingEntity)) {
+				continue;
+			}
+
+			if (!canRemove(livingEntity, manager)) {
+				continue;
+			}
+
+			entities.add(livingEntity);
+		}
+
+		return entities;
+	}
+
+	public List<LivingEntity> getRemovableEntityTypeEntities(
+			Chunk chunk,
+			EntityType entityType,
+			ChunkMobUnloadManager manager
+	) {
+		List<LivingEntity> entities = new ArrayList<>();
+
+		for (Entity entity : chunk.getEntities()) {
+			if (entity.getType() != entityType) {
+				continue;
+			}
+
+			if (!(entity instanceof LivingEntity livingEntity)) {
+				continue;
+			}
+
+			if (!canRemove(livingEntity, manager)) {
+				continue;
+			}
+
+			entities.add(livingEntity);
+		}
+
+		return entities;
+	}
+
+	private boolean canRemove(LivingEntity entity, ChunkMobUnloadManager manager) {
+		if (entity instanceof Player) {
+			return false;
+		}
+		if (!manager.shouldRemoveNamedEntities() && entity.customName() != null) {
+			return false;
+		}
+		if (!manager.shouldRemoveTamedEntities()
+				&& entity instanceof Tameable tameable
+				&& tameable.isTamed()) {
+			return false;
+		}
+		return true;
 	}
 }

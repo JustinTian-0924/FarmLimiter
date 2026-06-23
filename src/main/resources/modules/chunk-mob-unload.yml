@@ -62,10 +62,21 @@ over-soft-limit:
   block-spawner: true
   block-spawn-egg: true
 
+check:
+  # How often loaded chunks are checked for hard-limit cleanup.
+  interval-seconds: 900
 cleanup:
-  remove-named-entities: true
-  remove-tamed-entities: true
-
+  # FIXED, TOTAL_PERCENT, EXCESS_PERCENT, ALL_EXCESS, ALL
+  remove-mode: "EXCESS_PERCENT"
+  # Meaning depends on remove-mode.
+  # FIXED: remove this many.
+  # TOTAL_PERCENT: remove this percent of total matching entities.
+  # EXCESS_PERCENT: remove this percent of entities over hard limit.
+  remove-value: 10
+  # Whether named entities can be removed.
+  remove-named-entities: false
+  # Whether tamed entities can be removed.
+  remove-tamed-entities: false
   # Reserved for later steps.
   # NORMAL_FIRST, NAMED_SECOND, TAMED_LAST
   priority-mode: "NORMAL_FIRST"

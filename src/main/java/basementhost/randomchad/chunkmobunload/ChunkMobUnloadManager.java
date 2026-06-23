@@ -161,6 +161,25 @@ public class ChunkMobUnloadManager {
 		}
 	}
 
+	public int getCheckIntervalSeconds() {
+		return Math.max(1, moduleConfig.getInt("check.interval-seconds", 60));
+	}
+
+	public ChunkMobUnloadRemoveMode getRemoveMode() {
+		String modeName = moduleConfig.getString("cleanup.remove-mode", "EXCESS_PERCENT");
+
+		try {
+			return ChunkMobUnloadRemoveMode.valueOf(modeName.toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			plugin.getLogger().warning("Unknown chunk-mob-unload remove-mode: " + modeName);
+			return ChunkMobUnloadRemoveMode.EXCESS_PERCENT;
+		}
+	}
+
+	public int getRemoveValue() {
+		return Math.max(0, moduleConfig.getInt("cleanup.remove-value", 50));
+	}
+
 	// debug
 	public boolean isDebugEnabled() {
 		return moduleConfig.getBoolean("debug.enabled", false);
