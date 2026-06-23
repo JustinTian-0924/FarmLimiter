@@ -1,9 +1,14 @@
 package basementhost.randomchad.chunkmobunload;
 
 import org.bukkit.Chunk;
-import org.bukkit.entity.*;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -81,33 +86,34 @@ public class ChunkMobUnloadUtil {
 		return false;
 	}
 
-	public List<LivingEntity> getRemovableLivingEntities(
+	public List<ChunkMobUnloadCandidate> getLivingEntityCandidates(
 			Chunk chunk,
 			ChunkMobUnloadManager manager
 	) {
-		List<LivingEntity> entities = new ArrayList<>();
+		List<ChunkMobUnloadCandidate> candidates = new ArrayList<>();
 
 		for (Entity entity : chunk.getEntities()) {
 			if (!(entity instanceof LivingEntity livingEntity)) {
 				continue;
 			}
 
-			if (!canRemove(livingEntity, manager)) {
-				continue;
-			}
+			ChunkMobUnloadCandidate candidate = createCandidate(livingEntity, manager);
 
-			entities.add(livingEntity);
+			if (candidate != null) {
+				candidates.add(candidate);
+			}
 		}
 
-		return entities;
+		sortCandidates(candidates);
+		return candidates;
 	}
 
-	public List<LivingEntity> getRemovableEntityTypeEntities(
+	public List<ChunkMobUnloadCandidate> getEntityTypeCandidates(
 			Chunk chunk,
 			EntityType entityType,
 			ChunkMobUnloadManager manager
 	) {
-		List<LivingEntity> entities = new ArrayList<>();
+		List<ChunkMobUnloadCandidate> candidates = new ArrayList<>();
 
 		for (Entity entity : chunk.getEntities()) {
 			if (entity.getType() != entityType) {
@@ -118,28 +124,89 @@ public class ChunkMobUnloadUtil {
 				continue;
 			}
 
-			if (!canRemove(livingEntity, manager)) {
+			ChunkMobUnloadCandidate candidate = createCandidate(livingEntity, manager);
+
+			if (candidate != null) {
+				candidates.add(candidate);
+			}
+		}
+
+		sortCandidates(candidates);
+		return candidates;
+	}
+
+	public List<ChunkMobUnloadCandidate> getGroupCandidates(
+			Chunk chunk,
+			Set<EntityType> entityTypes,
+			ChunkMobUnloadManager manager
+	) {
+		List<ChunkMobUnloadCandidate> candidates = new ArrayList<>();
+
+		for (Entity entity : chunk.getEntities()) {
+			if (!(entity instanceof LivingEntity livingEntity)) {
 				continue;
 			}
 
-			entities.add(livingEntity);
+			if (!entityTypes.contains(entity.getType())) {
+				continue;
+			}
+
+			ChunkMobUnloadCandidate candidate = createCandidate(livingEntity, manager);
+
+			if (candidate != null) {
+				candidates.add(candidate);
+			}
 		}
 
-		return entities;
+		sortCandidates(candidates);
+		return candidates;
 	}
 
-	private boolean canRemove(LivingEntity entity, ChunkMobUnloadManager manager) {
+	private ChunkMobUnloadCandidate createCandidate(
+			LivingEntity entity,
+			ChunkMobUnloadManager manager
+	) {
 		if (entity instanceof Player) {
-			return false;
+			return null;
 		}
-		if (!manager.shouldRemoveNamedEntities() && entity.customName() != null) {
-			return false;
+
+		boolean named = entity.customName() != null;
+		boolean tamed = entity instanceof Tameable tameable && tameable.isTamed();
+
+		if (tamed && manager.shouldRemoveTamedEntities()) {
+			return new ChunkMobUnloadCandidate(entity, ChunkMobUnloadCandidateType.NORMAL);
 		}
-		if (!manager.shouldRemoveTamedEntities()
-				&& entity instanceof Tameable tameable
-				&& tameable.isTamed()) {
-			return false;
+
+		if (tamed && manager.shouldRemoveTamedEntitiesAsSecondPriority()) {
+			return new ChunkMobUnloadCandidate(entity, ChunkMobUnloadCandidateType.TAMED);
 		}
-		return true;
+
+		if (named && manager.shouldRemoveNamedEntities()) {
+			return new ChunkMobUnloadCandidate(entity, ChunkMobUnloadCandidateType.NORMAL);
+		}
+
+		if (named && manager.shouldRemoveNamedEntitiesAsSecondPriority()) {
+			return new ChunkMobUnloadCandidate(entity, ChunkMobUnloadCandidateType.NAMED);
+		}
+
+		if (named || tamed) {
+			return null;
+		}
+
+		return new ChunkMobUnloadCandidate(entity, ChunkMobUnloadCandidateType.NORMAL);
+	}
+
+	private void sortCandidates(List<ChunkMobUnloadCandidate> candidates) {
+		candidates.sort(Comparator.comparingInt(candidate -> {
+			if (candidate.getType() == ChunkMobUnloadCandidateType.NORMAL) {
+				return 0;
+			}
+
+			if (candidate.getType() == ChunkMobUnloadCandidateType.NAMED) {
+				return 1;
+			}
+
+			return 2;
+		}));
 	}
 }

@@ -1,19 +1,23 @@
 package basementhost.randomchad.chunkmobunload;
 
 import basementhost.randomchad.FarmLimiterPlugin;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ChunkMobUnloadTask extends BukkitRunnable {
 	private final FarmLimiterPlugin plugin;
 	private final ChunkMobUnloadManager chunkMobUnloadManager;
 	private final ChunkMobUnloadUtil chunkMobUnloadUtil;
+	private final Map<String, Long> warnedChunks = new HashMap<>();
 
 	public ChunkMobUnloadTask(FarmLimiterPlugin plugin) {
 		this.plugin = plugin;
@@ -35,8 +39,16 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 	}
 
 	private void cleanupChunk(Chunk chunk) {
+		if (shouldWarnBeforeCleanup(chunk)) {
+			warnNearbyPlayers(chunk);
+			markChunkWarned(chunk);
+			return;
+		}
+
 		cleanupEntityHardLimits(chunk);
+		cleanupGroupHardLimits(chunk);
 		cleanupTotalHardLimit(chunk);
+		clearChunkWarning(chunk);
 	}
 
 	private void cleanupEntityHardLimits(Chunk chunk) {
@@ -50,7 +62,7 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 				continue;
 			}
 
-			List<LivingEntity> candidates = chunkMobUnloadUtil.getRemovableEntityTypeEntities(
+			List<ChunkMobUnloadCandidate> candidates = chunkMobUnloadUtil.getEntityTypeCandidates(
 					chunk,
 					entityType,
 					chunkMobUnloadManager
@@ -62,7 +74,35 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 					candidates.size()
 			);
 
-			removeEntities(candidates, removeAmount, "entity " + entityType.name(), chunk);
+			removeCandidates(candidates, removeAmount, "entity " + entityType.name(), chunk);
+		}
+	}
+
+	private void cleanupGroupHardLimits(Chunk chunk) {
+		for (Map.Entry<String, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getGroupRules().entrySet()) {
+			String groupName = entry.getKey();
+			ChunkMobUnloadRule rule = entry.getValue();
+			Set<EntityType> entityTypes = chunkMobUnloadManager.getGroupEntities(groupName);
+
+			int current = chunkMobUnloadUtil.countGroup(chunk, entityTypes);
+
+			if (current <= rule.getHardLimit()) {
+				continue;
+			}
+
+			List<ChunkMobUnloadCandidate> candidates = chunkMobUnloadUtil.getGroupCandidates(
+					chunk,
+					entityTypes,
+					chunkMobUnloadManager
+			);
+
+			int removeAmount = calculateRemoveAmount(
+					current,
+					rule.getHardLimit(),
+					candidates.size()
+			);
+
+			removeCandidates(candidates, removeAmount, "group " + groupName, chunk);
 		}
 	}
 
@@ -74,7 +114,7 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 			return;
 		}
 
-		List<LivingEntity> candidates = chunkMobUnloadUtil.getRemovableLivingEntities(
+		List<ChunkMobUnloadCandidate> candidates = chunkMobUnloadUtil.getLivingEntityCandidates(
 				chunk,
 				chunkMobUnloadManager
 		);
@@ -85,7 +125,7 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 				candidates.size()
 		);
 
-		removeEntities(candidates, removeAmount, "total", chunk);
+		removeCandidates(candidates, removeAmount, "total", chunk);
 	}
 
 	private int calculateRemoveAmount(int current, int hardLimit, int candidateSize) {
@@ -110,8 +150,8 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 		return Math.min(amount, candidateSize);
 	}
 
-	private void removeEntities(
-			List<LivingEntity> candidates,
+	private void removeCandidates(
+			List<ChunkMobUnloadCandidate> candidates,
 			int removeAmount,
 			String reason,
 			Chunk chunk
@@ -122,16 +162,115 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 
 		int removed = 0;
 
-		for (LivingEntity entity : candidates) {
+		for (ChunkMobUnloadCandidate candidate : candidates) {
 			if (removed >= removeAmount) {
 				break;
 			}
 
-			entity.remove();
+			candidate.getEntity().remove();
 			removed++;
 		}
 
 		debugCleanup(reason, removed, chunk);
+	}
+
+	private boolean shouldWarnBeforeCleanup(Chunk chunk) {
+		if (!chunkMobUnloadManager.isWarningEnabled()) {
+			return false;
+		}
+
+		if (!isChunkOverAnyHardLimit(chunk)) {
+			return false;
+		}
+
+		if (!hasNearbyPlayers(chunk)) {
+			return false;
+		}
+
+		String key = getChunkKey(chunk);
+		long now = System.currentTimeMillis();
+		long lastWarnTime = warnedChunks.getOrDefault(key, 0L);
+		long cooldownMillis = chunkMobUnloadManager.getWarningCooldownSeconds() * 1000L;
+
+		if (cooldownMillis <= 0) {
+			return !warnedChunks.containsKey(key);
+		}
+
+		return now - lastWarnTime >= cooldownMillis;
+	}
+
+	private boolean isChunkOverAnyHardLimit(Chunk chunk) {
+		ChunkMobUnloadRule totalRule = chunkMobUnloadManager.getTotalRule();
+
+		if (totalRule != null && chunkMobUnloadUtil.countLivingEntities(chunk) > totalRule.getHardLimit()) {
+			return true;
+		}
+
+		for (Map.Entry<EntityType, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getEntityRules().entrySet()) {
+			if (chunkMobUnloadUtil.countEntityType(chunk, entry.getKey()) > entry.getValue().getHardLimit()) {
+				return true;
+			}
+		}
+
+		for (Map.Entry<String, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getGroupRules().entrySet()) {
+			Set<EntityType> entityTypes = chunkMobUnloadManager.getGroupEntities(entry.getKey());
+
+			if (chunkMobUnloadUtil.countGroup(chunk, entityTypes) > entry.getValue().getHardLimit()) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private boolean hasNearbyPlayers(Chunk chunk) {
+		for (Player player : chunk.getWorld().getPlayers()) {
+			if (isPlayerNearChunk(player, chunk)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private void warnNearbyPlayers(Chunk chunk) {
+		for (Player player : chunk.getWorld().getPlayers()) {
+			if (!isPlayerNearChunk(player, chunk)) {
+				continue;
+			}
+
+			player.sendMessage(Component.text(plugin.getLangManager().get("chunkmob.cleanup-warning", Map.of(
+					"x", chunk.getX(),
+					"z", chunk.getZ()
+			))));
+		}
+	}
+
+	private boolean isPlayerNearChunk(Player player, Chunk chunk) {
+		int radius = chunkMobUnloadManager.getWarningRadiusBlocks();
+
+		if (radius <= 0) {
+			return false;
+		}
+
+		double centerX = chunk.getX() * 16 + 8;
+		double centerZ = chunk.getZ() * 16 + 8;
+		double dx = player.getLocation().getX() - centerX;
+		double dz = player.getLocation().getZ() - centerZ;
+
+		return dx * dx + dz * dz <= radius * radius;
+	}
+
+	private String getChunkKey(Chunk chunk) {
+		return chunk.getWorld().getName() + ":" + chunk.getX() + ":" + chunk.getZ();
+	}
+
+	private void markChunkWarned(Chunk chunk) {
+		warnedChunks.put(getChunkKey(chunk), System.currentTimeMillis());
+	}
+
+	private void clearChunkWarning(Chunk chunk) {
+		warnedChunks.remove(getChunkKey(chunk));
 	}
 
 	private void debugCleanup(String reason, int removed, Chunk chunk) {

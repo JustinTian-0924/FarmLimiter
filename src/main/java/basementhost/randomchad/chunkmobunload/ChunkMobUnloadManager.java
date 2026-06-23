@@ -44,6 +44,27 @@ public class ChunkMobUnloadManager {
 		return moduleConfig.getBoolean("over-soft-limit.block-spawn-egg", true);
 	}
 
+
+	public boolean shouldRemoveNamedEntitiesAsSecondPriority() {
+		return moduleConfig.getBoolean("cleanup.remove-named-entities-as-second-priority", true);
+	}
+
+	public boolean shouldRemoveTamedEntitiesAsSecondPriority() {
+		return moduleConfig.getBoolean("cleanup.remove-tamed-entities-as-second-priority", false);
+	}
+
+	public boolean isWarningEnabled() {
+		return moduleConfig.getBoolean("warning.enabled", true);
+	}
+
+	public int getWarningRadiusBlocks() {
+		return Math.max(0, moduleConfig.getInt("warning.radius-blocks", 48));
+	}
+
+	public int getWarningCooldownSeconds() {
+		return Math.max(0, moduleConfig.getInt("warning.cooldown-seconds", 60));
+	}
+
 	public void load() {
 		if (!configFile.exists()) {
 			plugin.saveResource("modules/chunk-mob-unload.yml", false);
