@@ -28,6 +28,10 @@ public class ChunkMobUnloadManager {
 		this.configFile = new File(plugin.getDataFolder(), "modules/chunk-mob-unload.yml");
 	}
 
+	public boolean shouldBlockNaturalSpawn() {
+		return moduleConfig.getBoolean("over-soft-limit.block-natural-spawn", true);
+	}
+
 	public void load() {
 		if (!configFile.exists()) {
 			plugin.saveResource("modules/chunk-mob-unload.yml", false);
@@ -143,5 +147,10 @@ public class ChunkMobUnloadManager {
 
 			groupEntities.put(normalizedGroupName, entityTypes);
 		}
+	}
+
+	// debug
+	public boolean isDebugEnabled() {
+		return moduleConfig.getBoolean("debug.enabled", false);
 	}
 }

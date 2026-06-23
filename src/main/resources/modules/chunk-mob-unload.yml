@@ -53,6 +53,15 @@ limits:
       soft: 24
       hard: 32
 
+over-soft-limit:
+  # Whether natural mob spawning should be blocked when the chunk is over soft limit.
+  block-natural-spawn: true
+
+  # Reserved for later steps.
+  block-breeding: false
+  block-spawner: false
+  block-spawn-egg: false
+
 cleanup:
   remove-named-entities: true
   remove-tamed-entities: true

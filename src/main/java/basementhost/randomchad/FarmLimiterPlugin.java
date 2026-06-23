@@ -2,6 +2,7 @@ package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitListener;
 import basementhost.randomchad.breeding.BreedingLimitManager;
+import basementhost.randomchad.chunkmobunload.ChunkMobUnloadListener;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
 import basementhost.randomchad.fish.FishListener;
 import basementhost.randomchad.fish.FishManager;
@@ -66,6 +67,11 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 		Bukkit.getPluginManager().registerEvents(
 				new BreedingLimitListener(this, breedingLimitManager),
+				this
+		);
+
+		getServer().getPluginManager().registerEvents(
+				new ChunkMobUnloadListener(this),
 				this
 		);
 
