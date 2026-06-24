@@ -201,6 +201,16 @@ public class ChunkMobUnloadManager {
 		return Math.max(0, moduleConfig.getInt("cleanup.remove-value", 50));
 	}
 
+	public ChunkMobUnloadSortMode getSortMode() {
+		String modeName = moduleConfig.getString("cleanup.sort-mode", "NORMAL_FIRST");
+		try {
+			return ChunkMobUnloadSortMode.valueOf(modeName.toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			plugin.getLogger().warning("Unknown chunk-mob-unload sort-mode: " + modeName);
+			return ChunkMobUnloadSortMode.NORMAL_FIRST;
+		}
+	}
+
 	// debug
 	public boolean isDebugEnabled() {
 		return moduleConfig.getBoolean("debug.enabled", false);

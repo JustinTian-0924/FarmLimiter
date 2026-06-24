@@ -77,7 +77,7 @@ cleanup:
   remove-named-entities-as-second-priority: true
   # Whether tamed entities can be removed only after normal entities are not enough.
   remove-tamed-entities-as-second-priority: false
-  # NORMAL_FIRST, RANDOM
+  # NORMAL_FIRST, RANDOM, NEAREST_TO_CHUNK_CENTER, FARTHEST_FROM_CHUNK_CENTER, NEAREST_TO_PLAYER, FARTHEST_FROM_PLAYER
   sort-mode: "NORMAL_FIRST"
 warning:
   # If players are near the chunk, warn first and clean on the next scan.
