@@ -45,13 +45,20 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 			return;
 		}
 
-		cleanupEntityHardLimits(chunk);
-		cleanupGroupHardLimits(chunk);
-		cleanupTotalHardLimit(chunk);
+		Map<EntityType, Integer> removedCounts = new HashMap<>();
+
+		cleanupEntityHardLimits(chunk, removedCounts);
+		cleanupGroupHardLimits(chunk, removedCounts);
+		cleanupTotalHardLimit(chunk, removedCounts);
+
+		if (!removedCounts.isEmpty()) {
+			notifyCleanupResult(chunk, removedCounts);
+		}
+
 		clearChunkWarning(chunk);
 	}
 
-	private void cleanupEntityHardLimits(Chunk chunk) {
+	private void cleanupEntityHardLimits(Chunk chunk, Map<EntityType, Integer> removedCounts) {
 		for (Map.Entry<EntityType, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getEntityRules().entrySet()) {
 			EntityType entityType = entry.getKey();
 			ChunkMobUnloadRule rule = entry.getValue();
@@ -74,11 +81,11 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 					candidates.size()
 			);
 
-			removeCandidates(candidates, removeAmount, "entity " + entityType.name(), chunk);
+			removeCandidates(candidates, removeAmount, "entity " + entityType.name(), chunk, removedCounts);
 		}
 	}
 
-	private void cleanupGroupHardLimits(Chunk chunk) {
+	private void cleanupGroupHardLimits(Chunk chunk, Map<EntityType, Integer> removedCounts) {
 		for (Map.Entry<String, ChunkMobUnloadRule> entry : chunkMobUnloadManager.getGroupRules().entrySet()) {
 			String groupName = entry.getKey();
 			ChunkMobUnloadRule rule = entry.getValue();
@@ -102,11 +109,11 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 					candidates.size()
 			);
 
-			removeCandidates(candidates, removeAmount, "group " + groupName, chunk);
+			removeCandidates(candidates, removeAmount, "group " + groupName, chunk, removedCounts);
 		}
 	}
 
-	private void cleanupTotalHardLimit(Chunk chunk) {
+	private void cleanupTotalHardLimit(Chunk chunk, Map<EntityType, Integer> removedCounts) {
 		ChunkMobUnloadRule rule = chunkMobUnloadManager.getTotalRule();
 		int current = chunkMobUnloadUtil.countLivingEntities(chunk);
 
@@ -125,7 +132,7 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 				candidates.size()
 		);
 
-		removeCandidates(candidates, removeAmount, "total", chunk);
+		removeCandidates(candidates, removeAmount, "total", chunk, removedCounts);
 	}
 
 	private int calculateRemoveAmount(int current, int hardLimit, int candidateSize) {
@@ -154,23 +161,22 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 			List<ChunkMobUnloadCandidate> candidates,
 			int removeAmount,
 			String reason,
-			Chunk chunk
+			Chunk chunk,
+			Map<EntityType, Integer> removedCounts
 	) {
 		if (removeAmount <= 0) {
 			return;
 		}
-
 		int removed = 0;
-
 		for (ChunkMobUnloadCandidate candidate : candidates) {
 			if (removed >= removeAmount) {
 				break;
 			}
-
+			EntityType entityType = candidate.getEntity().getType();
 			candidate.getEntity().remove();
 			removed++;
+			removedCounts.put(entityType, removedCounts.getOrDefault(entityType, 0) + 1);
 		}
-
 		debugCleanup(reason, removed, chunk);
 	}
 
@@ -288,5 +294,47 @@ public class ChunkMobUnloadTask extends BukkitRunnable {
 				+ chunk.getX()
 				+ ","
 				+ chunk.getZ());
+	}
+
+	private void notifyCleanupResult(Chunk chunk, Map<EntityType, Integer> removedCounts) {
+		if (!chunkMobUnloadManager.shouldNotifyCleanupResult()) {
+			return;
+		}
+		String summary = buildCleanupSummary(removedCounts);
+		for (Player player : chunk.getWorld().getPlayers()) {
+			if (!isPlayerNearCleanupResultChunk(player, chunk)) {
+				continue;
+			}
+			player.sendMessage(Component.text(plugin.getLangManager().get("chunkmob.cleanup-result", Map.of(
+					"x", chunk.getX(),
+					"z", chunk.getZ(),
+					"summary", summary
+			))));
+		}
+	}
+
+	private String buildCleanupSummary(Map<EntityType, Integer> removedCounts) {
+		StringBuilder builder = new StringBuilder();
+		for (Map.Entry<EntityType, Integer> entry : removedCounts.entrySet()) {
+			if (!builder.isEmpty()) {
+				builder.append(", ");
+			}
+			builder.append(entry.getKey().name())
+					.append(" x")
+					.append(entry.getValue());
+		}
+		return builder.toString();
+	}
+
+	private boolean isPlayerNearCleanupResultChunk(Player player, Chunk chunk) {
+		int radius = chunkMobUnloadManager.getCleanupResultRadiusBlocks();
+		if (radius <= 0) {
+			return false;
+		}
+		double centerX = chunk.getX() * 16 + 8;
+		double centerZ = chunk.getZ() * 16 + 8;
+		double dx = player.getLocation().getX() - centerX;
+		double dz = player.getLocation().getZ() - centerZ;
+		return dx * dx + dz * dz <= radius * radius;
 	}
 }

@@ -211,6 +211,14 @@ public class ChunkMobUnloadManager {
 		}
 	}
 
+	public boolean shouldNotifyCleanupResult() {
+		return moduleConfig.getBoolean("notify.cleanup-result", true);
+	}
+
+	public int getCleanupResultRadiusBlocks() {
+		return Math.max(0, moduleConfig.getInt("notify.cleanup-result-radius-blocks", 48));
+	}
+
 	// debug
 	public boolean isDebugEnabled() {
 		return moduleConfig.getBoolean("debug.enabled", false);

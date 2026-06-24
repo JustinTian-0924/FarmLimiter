@@ -834,6 +834,9 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args.length == 2 && args[0].equalsIgnoreCase("chunkmob")) {
 			List<String> suggestions = new ArrayList<>();
+			if (sender.hasPermission("farmlimiter.admin")) {
+				suggestions.add("debug");
+			}
 			suggestions.add("all");
 			suggestions.add("farm_animal");
 			suggestions.add("hostile");
@@ -872,6 +875,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 	}
 
 	private void handleChunkMob(CommandSender sender, String[] args) {
+		if (args.length >= 2 && args[1].equalsIgnoreCase("debug")) {
+			handleChunkMobDebug(sender);
+			return;
+		}
 		if (!(sender instanceof Player player)) {
 			sender.sendMessage(lang("command.player-only"));
 			return;
@@ -986,6 +993,41 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				"current", current,
 				"soft", rule.getSoftLimit(),
 				"hard", rule.getHardLimit()
+		)));
+	}
+
+	private void handleChunkMobDebug(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+		sender.sendMessage(lang("chunkmob.debug-header"));
+		sender.sendMessage(lang("chunkmob.debug-enabled", Map.of(
+				"value", chunkMobUnloadManager.isEnabled()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-interval", Map.of(
+				"value", chunkMobUnloadManager.getCheckIntervalSeconds()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-remove-mode", Map.of(
+				"value", chunkMobUnloadManager.getRemoveMode().name()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-remove-value", Map.of(
+				"value", chunkMobUnloadManager.getRemoveValue()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-sort-mode", Map.of(
+				"value", chunkMobUnloadManager.getSortMode().name()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-warning", Map.of(
+				"value", chunkMobUnloadManager.isWarningEnabled()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-warning-radius", Map.of(
+				"value", chunkMobUnloadManager.getWarningRadiusBlocks()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-cleanup-result", Map.of(
+				"value", chunkMobUnloadManager.shouldNotifyCleanupResult()
+		)));
+		sender.sendMessage(lang("chunkmob.debug-cleanup-result-radius", Map.of(
+				"value", chunkMobUnloadManager.getCleanupResultRadiusBlocks()
 		)));
 	}
 }

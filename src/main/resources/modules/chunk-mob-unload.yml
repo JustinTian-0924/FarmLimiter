@@ -79,6 +79,7 @@ cleanup:
   remove-tamed-entities-as-second-priority: false
   # NORMAL_FIRST, RANDOM, NEAREST_TO_CHUNK_CENTER, FARTHEST_FROM_CHUNK_CENTER, NEAREST_TO_PLAYER, FARTHEST_FROM_PLAYER
   sort-mode: "NORMAL_FIRST"
+
 warning:
   # If players are near the chunk, warn first and clean on the next scan.
   enabled: true
@@ -86,6 +87,12 @@ warning:
   radius-blocks: 48
   # Prevent repeated warning spam for the same chunk.
   cooldown-seconds: 60
+
+notify:
+  # Whether nearby players should receive cleanup result messages.
+  cleanup-result: true
+  # Radius from cleaned chunk center.
+  cleanup-result-radius-blocks: 48
 
 debug:
   enabled: false

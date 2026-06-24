@@ -81,7 +81,7 @@ help:
   spawnerreset: "&e/farmlimiter spawnerreset &7- Reset the spawner you are looking at"
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
   breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- Show or manage breeding limits"
-  chunkmob: "&e/farmlimiter chunkmob [all|entity|group] &7- Show current chunk mob limits"
+  chunkmob: "&e/farmlimiter chunkmob [all|entity|group|debug] &7- Show or debug current chunk mob limits"
 
 spawnercheck:
   header: "&6Spawner check:"
@@ -143,3 +143,14 @@ chunkmob:
   unknown-target: "&cUnknown chunkmob target: &e{target}"
   no-entity-rule: "&eNo per-entity rule configured for &f{entity}&e."
   spawn-blocked: "&cThis chunk is over the mob soft limit. Cannot spawn more {entity} here."
+  cleanup-result: "&cChunk &e{x}, {z}&c cleaned mobs: &e{summary}"
+  debug-header: "&aChunk mob unload debug:"
+  debug-enabled: "&7Enabled: &e{value}"
+  debug-interval: "&7Check interval: &e{value}s"
+  debug-remove-mode: "&7Remove mode: &e{value}"
+  debug-remove-value: "&7Remove value: &e{value}"
+  debug-sort-mode: "&7Sort mode: &e{value}"
+  debug-warning: "&7Warning enabled: &e{value}"
+  debug-warning-radius: "&7Warning radius: &e{value} blocks"
+  debug-cleanup-result: "&7Cleanup result notify: &e{value}"
+  debug-cleanup-result-radius: "&7Cleanup result radius: &e{value} blocks"

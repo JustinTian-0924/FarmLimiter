@@ -79,7 +79,7 @@ help:
   spawnercheck: "&e/farmlimiter spawnercheck &7- 查看准星指向的刷怪笼信息"
   spawnerapply: "&e/farmlimiter spawnerapply &7- 将刷怪笼行为设置应用到已加载刷怪笼"
   breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- 查看或管理繁殖限制"
-  chunkmob: "&e/farmlimiter chunkmob [all|实体|分组] &7- 查看当前区块实体上限"
+  chunkmob: "&e/farmlimiter chunkmob [all|实体|分组|debug] &7- 查看或调试当前区块实体上限"
 
 spawnercheck:
   header: "&6刷怪笼检查:"
@@ -141,3 +141,14 @@ chunkmob:
   unknown-target: "&c未知的 chunkmob 查询目标：&e{target}"
   no-entity-rule: "&e没有为 &f{entity}&e 配置单独实体规则。"
   spawn-blocked: "&c当前区块已超过实体软上限，无法继续生成 {entity}。"
+  cleanup-result: "&c区块 &e{x}, {z}&c 已清理实体：&e{summary}"
+  debug-header: "&aChunk mob unload 调试信息："
+  debug-enabled: "&7已启用：&e{value}"
+  debug-interval: "&7扫描间隔：&e{value} 秒"
+  debug-remove-mode: "&7清理模式：&e{value}"
+  debug-remove-value: "&7清理数值：&e{value}"
+  debug-sort-mode: "&7清理顺序：&e{value}"
+  debug-warning: "&7清理前预警：&e{value}"
+  debug-warning-radius: "&7预警范围：&e{value} 格"
+  debug-cleanup-result: "&7清理结果通知：&e{value}"
+  debug-cleanup-result-radius: "&7清理结果通知范围：&e{value} 格"
