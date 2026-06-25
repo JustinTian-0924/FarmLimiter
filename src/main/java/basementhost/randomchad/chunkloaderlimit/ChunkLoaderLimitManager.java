@@ -1,6 +1,7 @@
 package basementhost.randomchad.chunkloaderlimit;
 
 import basementhost.randomchad.FarmLimiterPlugin;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.EntityType;
@@ -74,6 +75,10 @@ public class ChunkLoaderLimitManager {
 		}
 
 		return !listed;
+	}
+
+	public int getStatusNearbyRadiusBlocks() {
+		return Math.max(1, moduleConfig.getInt("status.nearby-radius-blocks", 64));
 	}
 
 	public boolean isEntityTypeIgnored(EntityType entityType) {
@@ -174,5 +179,17 @@ public class ChunkLoaderLimitManager {
 
 	public boolean isDebugEnabled() {
 		return moduleConfig.getBoolean("debug.enabled", false);
+	}
+
+	public NamespacedKey getEnderPearlOwnerKey() {
+		return new NamespacedKey(plugin, "chunkloader_ender_pearl_owner");
+	}
+
+	public NamespacedKey getEnderPearlCreatedAtKey() {
+		return new NamespacedKey(plugin, "chunkloader_ender_pearl_created_at");
+	}
+
+	public NamespacedKey getPortalTeleportCountKey() {
+		return new NamespacedKey(plugin, "chunkloader_portal_teleport_count");
 	}
 }

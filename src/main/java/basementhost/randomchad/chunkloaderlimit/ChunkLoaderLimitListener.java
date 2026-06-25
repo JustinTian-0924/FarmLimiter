@@ -33,9 +33,9 @@ public class ChunkLoaderLimitListener implements Listener {
 	public ChunkLoaderLimitListener(FarmLimiterPlugin plugin) {
 		this.plugin = plugin;
 		this.chunkLoaderLimitManager = plugin.getChunkLoaderLimitManager();
-		this.pearlCreatedAtKey = new NamespacedKey(plugin, "chunkloader_ender_pearl_created_at");
+		this.pearlCreatedAtKey = chunkLoaderLimitManager.getEnderPearlCreatedAtKey();
 		this.pearlOwnerKey = new NamespacedKey(plugin, "chunkloader_ender_pearl_owner");
-		this.portalTeleportCountKey = new NamespacedKey(plugin, "chunkloader_portal_teleport_count");
+		this.portalTeleportCountKey = chunkLoaderLimitManager.getPortalTeleportCountKey();
 	}
 
 	@EventHandler(ignoreCancelled = true)

@@ -2,6 +2,7 @@ package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitManager;
 import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitManager;
+import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitStatus;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadRule;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadUtil;
@@ -10,6 +11,7 @@ import basementhost.randomchad.natural.NaturalSpawnManager;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
@@ -17,8 +19,8 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
+import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -870,8 +872,24 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			List<String> suggestions = new ArrayList<>();
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("debug");
+				suggestions.add("status");
 			}
 			String input = args[1].toLowerCase(Locale.ROOT);
+			return suggestions.stream()
+					.filter(suggestion -> suggestion.toLowerCase(Locale.ROOT).startsWith(input))
+					.toList();
+
+		}
+
+		if (args.length == 3
+				&& args[0].equalsIgnoreCase("chunkloader")
+				&& args[1].equalsIgnoreCase("status")) {
+			List<String> suggestions = new ArrayList<>();
+			if (sender.hasPermission("farmlimiter.admin")) {
+				suggestions.add("nearby");
+				suggestions.add("world");
+			}
+			String input = args[2].toLowerCase(Locale.ROOT);
 			return suggestions.stream()
 					.filter(suggestion -> suggestion.toLowerCase(Locale.ROOT).startsWith(input))
 					.toList();
@@ -1061,7 +1079,147 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			handleChunkLoaderDebug(sender);
 			return;
 		}
+
+		if (args.length >= 2 && args[1].equalsIgnoreCase("status")) {
+			handleChunkLoaderStatus(sender, args);
+			return;
+		}
+
 		sender.sendMessage(lang("chunkloader.usage"));
+	}
+
+	private void handleChunkLoaderStatus(CommandSender sender, String[] args) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		if (args.length >= 3 && args[2].equalsIgnoreCase("nearby")) {
+			if (!(sender instanceof Player player)) {
+				sender.sendMessage(lang("command.player-only"));
+				return;
+			}
+
+			ChunkLoaderLimitStatus status = collectChunkLoaderStatusNearby(player);
+			sendChunkLoaderStatus(sender, "nearby", status);
+			return;
+		}
+
+		if (args.length >= 3 && args[2].equalsIgnoreCase("world")) {
+			if (!(sender instanceof Player player)) {
+				sender.sendMessage(lang("command.player-only"));
+				return;
+			}
+
+			ChunkLoaderLimitStatus status = collectChunkLoaderStatusInWorld(player.getWorld());
+			sendChunkLoaderStatus(sender, player.getWorld().getName(), status);
+			return;
+		}
+
+		ChunkLoaderLimitStatus status = collectChunkLoaderStatusAll();
+		sendChunkLoaderStatus(sender, "all", status);
+	}
+
+	private ChunkLoaderLimitStatus collectChunkLoaderStatusAll() {
+		ChunkLoaderLimitStatus status = new ChunkLoaderLimitStatus();
+
+		for (World world : plugin.getServer().getWorlds()) {
+			collectChunkLoaderStatusFromWorld(world, status);
+		}
+
+		return status;
+	}
+
+	private ChunkLoaderLimitStatus collectChunkLoaderStatusInWorld(World world) {
+		ChunkLoaderLimitStatus status = new ChunkLoaderLimitStatus();
+		collectChunkLoaderStatusFromWorld(world, status);
+		return status;
+	}
+
+	private ChunkLoaderLimitStatus collectChunkLoaderStatusNearby(Player player) {
+		ChunkLoaderLimitStatus status = new ChunkLoaderLimitStatus();
+		int radius = chunkLoaderLimitManager.getStatusNearbyRadiusBlocks();
+		double radiusSquared = radius * radius;
+
+		for (Entity entity : player.getWorld().getEntities()) {
+			if (entity.getLocation().distanceSquared(player.getLocation()) > radiusSquared) {
+				continue;
+			}
+
+			collectChunkLoaderEntityStatus(entity, status);
+		}
+
+		return status;
+	}
+
+	private void collectChunkLoaderStatusFromWorld(World world, ChunkLoaderLimitStatus status) {
+		for (Entity entity : world.getEntities()) {
+			collectChunkLoaderEntityStatus(entity, status);
+		}
+	}
+
+	private void collectChunkLoaderEntityStatus(Entity entity, ChunkLoaderLimitStatus status) {
+		if (entity instanceof EnderPearl) {
+			if (entity.getPersistentDataContainer().has(
+					chunkLoaderLimitManager.getEnderPearlCreatedAtKey(),
+					PersistentDataType.LONG
+			)) {
+				status.addTrackedEnderPearl();
+			}
+
+			return;
+		}
+
+		if (!entity.getPersistentDataContainer().has(
+				chunkLoaderLimitManager.getPortalTeleportCountKey(),
+				PersistentDataType.INTEGER
+		)) {
+			return;
+		}
+
+		if (entity instanceof Minecart) {
+			status.addTrackedMinecart();
+			return;
+		}
+
+		if (entity instanceof Boat) {
+			status.addTrackedBoat();
+			return;
+		}
+
+		if (entity instanceof Item) {
+			status.addTrackedItem();
+			return;
+		}
+
+		if (entity instanceof LivingEntity && !(entity instanceof Player)) {
+			status.addTrackedLivingEntity();
+		}
+	}
+
+	private void sendChunkLoaderStatus(
+			CommandSender sender,
+			String scope,
+			ChunkLoaderLimitStatus status
+	) {
+		sender.sendMessage(lang("chunkloader.status-header", Map.of(
+				"scope", scope
+		)));
+		sender.sendMessage(lang("chunkloader.status-ender-pearls", Map.of(
+				"value", status.getTrackedEnderPearls()
+		)));
+		sender.sendMessage(lang("chunkloader.status-minecarts", Map.of(
+				"value", status.getTrackedMinecarts()
+		)));
+		sender.sendMessage(lang("chunkloader.status-boats", Map.of(
+				"value", status.getTrackedBoats()
+		)));
+		sender.sendMessage(lang("chunkloader.status-items", Map.of(
+				"value", status.getTrackedItems()
+		)));
+		sender.sendMessage(lang("chunkloader.status-living-entities", Map.of(
+				"value", status.getTrackedLivingEntities()
+		)));
 	}
 
 	private void handleChunkLoaderDebug(CommandSender sender) {

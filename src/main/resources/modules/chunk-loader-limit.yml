@@ -48,6 +48,7 @@ entity-filter:
 notify:
   admin-on-portal-limit: true
   admin-radius-blocks: 48
-
+status:
+  nearby-radius-blocks: 64
 debug:
   enabled: false
