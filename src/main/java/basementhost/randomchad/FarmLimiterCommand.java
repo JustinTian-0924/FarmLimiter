@@ -1,6 +1,7 @@
 package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitManager;
+import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitManager;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadRule;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadUtil;
@@ -31,6 +32,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 	private final BreedingLimitManager breedingLimitManager;
 	private final ChunkMobUnloadManager chunkMobUnloadManager;
 	private final ChunkMobUnloadUtil chunkMobUnloadUtil = new ChunkMobUnloadUtil();
+	private final ChunkLoaderLimitManager chunkLoaderLimitManager;
 
 	public FarmLimiterCommand(
 			FarmLimiterPlugin plugin,
@@ -43,6 +45,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		this.naturalSpawnManager = naturalSpawnManager;
 		this.breedingLimitManager = breedingLimitManager;
 		this.chunkMobUnloadManager = plugin.getChunkMobUnloadManager();
+		this.chunkLoaderLimitManager = plugin.getChunkLoaderLimitManager();
 	}
 
 	@Override
@@ -110,6 +113,10 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 			case "chunkmob":
 				handleChunkMob(sender, args);
+				return true;
+
+			case "chunkloader":
+				handleChunkLoader(sender, args);
 				return true;
 
 			default:
@@ -712,6 +719,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("help.spawnerapply"));
 		sender.sendMessage(lang("help.breeding"));
 		sender.sendMessage(lang("help.chunkmob"));
+		sender.sendMessage(lang("help.chunkloader"));
 		sender.sendMessage(lang("help.debug"));
 		sender.sendMessage(lang("help.stats"));
 		sender.sendMessage(lang("help.cleanup"));
@@ -740,6 +748,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			suggestions.add("spawnerapply");
 			suggestions.add("breeding");
 			suggestions.add("chunkmob");
+			suggestions.add("chunkloader");
 
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("save");
@@ -849,6 +858,17 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			String input = args[1].toLowerCase(Locale.ROOT);
 			return suggestions.stream()
 					.filter(s -> s.toLowerCase(Locale.ROOT).startsWith(input))
+					.toList();
+		}
+
+		if (args.length == 2 && args[0].equalsIgnoreCase("chunkloader")) {
+			List<String> suggestions = new ArrayList<>();
+			if (sender.hasPermission("farmlimiter.admin")) {
+				suggestions.add("debug");
+			}
+			String input = args[1].toLowerCase(Locale.ROOT);
+			return suggestions.stream()
+					.filter(suggestion -> suggestion.toLowerCase(Locale.ROOT).startsWith(input))
 					.toList();
 		}
 
@@ -1028,6 +1048,62 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		)));
 		sender.sendMessage(lang("chunkmob.debug-cleanup-result-radius", Map.of(
 				"value", chunkMobUnloadManager.getCleanupResultRadiusBlocks()
+		)));
+	}
+
+	private void handleChunkLoader(CommandSender sender, String[] args) {
+		if (args.length >= 2 && args[1].equalsIgnoreCase("debug")) {
+			handleChunkLoaderDebug(sender);
+			return;
+		}
+		sender.sendMessage(lang("chunkloader.usage"));
+	}
+
+	private void handleChunkLoaderDebug(CommandSender sender) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		sender.sendMessage(lang("chunkloader.debug-header"));
+		sender.sendMessage(lang("chunkloader.debug-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-ender-pearl-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isEnderPearlEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-ender-pearl-lifetime", Map.of(
+				"value", chunkLoaderLimitManager.getEnderPearlMaxLifetimeSeconds()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-portal-entity-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isPortalEntityEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-minecart-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isMinecartPortalLimitEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-minecart-max", Map.of(
+				"value", chunkLoaderLimitManager.getMinecartMaxPortalTeleports()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-boat-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isBoatPortalLimitEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-boat-max", Map.of(
+				"value", chunkLoaderLimitManager.getBoatMaxPortalTeleports()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-item-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isItemPortalLimitEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-item-max", Map.of(
+				"value", chunkLoaderLimitManager.getItemMaxPortalTeleports()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-living-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isLivingEntityPortalLimitEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-living-max", Map.of(
+				"value", chunkLoaderLimitManager.getLivingEntityMaxPortalTeleports()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-check-interval", Map.of(
+				"value", chunkLoaderLimitManager.getCheckIntervalSeconds()
 		)));
 	}
 }

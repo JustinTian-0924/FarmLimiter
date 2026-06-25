@@ -1,0 +1,36 @@
+enabled: true
+
+ender-pearl:
+  enabled: true
+  max-lifetime-seconds: 3600
+  only-player-thrown: true
+  notify-owner-on-remove: true
+
+portal-entity:
+  enabled: true
+
+  minecart:
+    enabled: true
+    max-portal-teleports: 16
+    convert-to-item: true
+
+  boat:
+    enabled: true
+    max-portal-teleports: 16
+    convert-to-item: true
+
+  item:
+    enabled: true
+    max-portal-teleports: 8
+    remove-on-exceed: true
+
+  living-entity:
+    enabled: false
+    max-portal-teleports: 16
+    remove-on-exceed: false
+
+check:
+  interval-seconds: 60
+
+debug:
+  enabled: false

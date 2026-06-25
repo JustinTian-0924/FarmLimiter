@@ -82,6 +82,7 @@ help:
   spawnerapply: "&e/farmlimiter spawnerapply &7- Apply spawner behavior settings to loaded spawners"
   breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- Show or manage breeding limits"
   chunkmob: "&e/farmlimiter chunkmob [all|entity|group|debug] &7- Show or debug current chunk mob limits"
+  chunkloader: "&e/fl chunkloader debug &7- Show Chunk Loader limit debug info"
 
 spawnercheck:
   header: "&6Spawner check:"
@@ -154,3 +155,20 @@ chunkmob:
   debug-warning-radius: "&7Warning radius: &e{value} blocks"
   debug-cleanup-result: "&7Cleanup result notify: &e{value}"
   debug-cleanup-result-radius: "&7Cleanup result radius: &e{value} blocks"
+
+chunkloader:
+  usage: "&eUsage: /fl chunkloader debug"
+  debug-header: "&aChunk Loader limit debug:"
+  debug-enabled: "&7Enabled: &e{value}"
+  debug-ender-pearl-enabled: "&7Ender pearl TTL: &e{value}"
+  debug-ender-pearl-lifetime: "&7Ender pearl max lifetime: &e{value}s"
+  debug-portal-entity-enabled: "&7Portal entity limit: &e{value}"
+  debug-minecart-enabled: "&7Minecart portal limit: &e{value}"
+  debug-minecart-max: "&7Minecart max portal teleports: &e{value}"
+  debug-boat-enabled: "&7Boat portal limit: &e{value}"
+  debug-boat-max: "&7Boat max portal teleports: &e{value}"
+  debug-item-enabled: "&7Item portal limit: &e{value}"
+  debug-item-max: "&7Item max portal teleports: &e{value}"
+  debug-living-enabled: "&7Living entity portal limit: &e{value}"
+  debug-living-max: "&7Living entity max portal teleports: &e{value}"
+  debug-check-interval: "&7Check interval: &e{value}s"

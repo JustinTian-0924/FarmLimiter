@@ -80,6 +80,7 @@ help:
   spawnerapply: "&e/farmlimiter spawnerapply &7- 将刷怪笼行为设置应用到已加载刷怪笼"
   breeding: "&e/farmlimiter breeding [entity|all|reload|debug] &7- 查看或管理繁殖限制"
   chunkmob: "&e/farmlimiter chunkmob [all|实体|分组|debug] &7- 查看或调试当前区块实体上限"
+  chunkloader: "&e/fl chunkloader debug &7- 查看 Chunk Loader 限制模块调试信息"
 
 spawnercheck:
   header: "&6刷怪笼检查:"
@@ -152,3 +153,20 @@ chunkmob:
   debug-warning-radius: "&7预警范围：&e{value} 格"
   debug-cleanup-result: "&7清理结果通知：&e{value}"
   debug-cleanup-result-radius: "&7清理结果通知范围：&e{value} 格"
+
+chunkloader:
+  usage: "&e用法：/fl chunkloader debug"
+  debug-header: "&aChunk Loader 限制模块调试信息："
+  debug-enabled: "&7模块启用：&e{value}"
+  debug-ender-pearl-enabled: "&7末影珍珠 TTL：&e{value}"
+  debug-ender-pearl-lifetime: "&7末影珍珠最大存在时间：&e{value} 秒"
+  debug-portal-entity-enabled: "&7传送门实体限制：&e{value}"
+  debug-minecart-enabled: "&7矿车传送门限制：&e{value}"
+  debug-minecart-max: "&7矿车最大传送次数：&e{value}"
+  debug-boat-enabled: "&7船传送门限制：&e{value}"
+  debug-boat-max: "&7船最大传送次数：&e{value}"
+  debug-item-enabled: "&7掉落物传送门限制：&e{value}"
+  debug-item-max: "&7掉落物最大传送次数：&e{value}"
+  debug-living-enabled: "&7生物传送门限制：&e{value}"
+  debug-living-max: "&7生物最大传送次数：&e{value}"
+  debug-check-interval: "&7检查间隔：&e{value} 秒"

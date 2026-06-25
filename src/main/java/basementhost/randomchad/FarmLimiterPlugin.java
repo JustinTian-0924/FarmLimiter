@@ -2,6 +2,7 @@ package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitListener;
 import basementhost.randomchad.breeding.BreedingLimitManager;
+import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitManager;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadListener;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadTask;
@@ -25,6 +26,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 	private BreedingLimitManager breedingLimitManager;
 	private ChunkMobUnloadManager chunkMobUnloadManager;
 	private ChunkMobUnloadTask chunkMobUnloadTask;
+	private ChunkLoaderLimitManager chunkLoaderLimitManager;
 
 	private int saveTaskId = -1;
 	private int cleanupTaskId = -1;
@@ -48,9 +50,13 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		chunkMobUnloadManager = new ChunkMobUnloadManager(this);
 		chunkMobUnloadManager.load();
 
+		chunkLoaderLimitManager = new ChunkLoaderLimitManager(this);
+		chunkLoaderLimitManager.load();
+
 		saveDefaultConfig();
 		langManager = new LangManager(this);
 		langManager.load();
+		chunkLoaderLimitManager.load();
 
 		Bukkit.getPluginManager().registerEvents(
 				new FishListener(this, fishManager),
@@ -184,6 +190,10 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 
 	public ChunkMobUnloadManager getChunkMobUnloadManager() {
 		return chunkMobUnloadManager;
+	}
+
+	public ChunkLoaderLimitManager getChunkLoaderLimitManager() {
+		return chunkLoaderLimitManager;
 	}
 
 	public void restartChunkMobUnloadTask() {
