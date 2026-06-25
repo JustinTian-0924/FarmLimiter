@@ -145,6 +145,11 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		naturalSpawnManager.load();
 		plugin.getSpawnerManager().load();
 		breedingLimitManager.load();
+		plugin.getChunkMobUnloadManager().load();
+		plugin.getChunkLoaderLimitManager().load();
+
+		plugin.restartChunkMobUnloadTask();
+		plugin.restartChunkLoaderLimitTask();
 
 		sender.sendMessage(lang("command.reload-success"));
 	}

@@ -2,7 +2,9 @@ package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitListener;
 import basementhost.randomchad.breeding.BreedingLimitManager;
+import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitListener;
 import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitManager;
+import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitTask;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadListener;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadTask;
@@ -27,6 +29,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 	private ChunkMobUnloadManager chunkMobUnloadManager;
 	private ChunkMobUnloadTask chunkMobUnloadTask;
 	private ChunkLoaderLimitManager chunkLoaderLimitManager;
+	private ChunkLoaderLimitTask chunkLoaderLimitTask;
 
 	private int saveTaskId = -1;
 	private int cleanupTaskId = -1;
@@ -53,11 +56,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		chunkLoaderLimitManager = new ChunkLoaderLimitManager(this);
 		chunkLoaderLimitManager.load();
 
-		saveDefaultConfig();
 		langManager = new LangManager(this);
 		langManager.load();
-		chunkLoaderLimitManager.load();
-
+		restartChunkLoaderLimitTask();
 		Bukkit.getPluginManager().registerEvents(
 				new FishListener(this, fishManager),
 				this
@@ -82,12 +83,9 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				new ChunkMobUnloadListener(this),
 				this
 		);
-
-		chunkMobUnloadTask = new ChunkMobUnloadTask(this);
-		chunkMobUnloadTask.runTaskTimer(
-				this,
-				20L * chunkMobUnloadManager.getCheckIntervalSeconds(),
-				20L * chunkMobUnloadManager.getCheckIntervalSeconds()
+		getServer().getPluginManager().registerEvents(
+				new ChunkLoaderLimitListener(this),
+				this
 		);
 
 		FarmLimiterCommand farmLimiterCommand = new FarmLimiterCommand(
@@ -173,6 +171,14 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 			breedingLimitManager.save();
 		}
 
+		if (chunkMobUnloadTask != null) {
+			chunkMobUnloadTask.cancel();
+		}
+		
+		if (chunkLoaderLimitTask != null) {
+			chunkLoaderLimitTask.cancel();
+		}
+
 		getLogger().info("FarmLimiter Plugin Disabled!");
 	}
 
@@ -205,6 +211,18 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 				this,
 				20L * chunkMobUnloadManager.getCheckIntervalSeconds(),
 				20L * chunkMobUnloadManager.getCheckIntervalSeconds()
+		);
+	}
+
+	public void restartChunkLoaderLimitTask() {
+		if (chunkLoaderLimitTask != null) {
+			chunkLoaderLimitTask.cancel();
+		}
+		chunkLoaderLimitTask = new ChunkLoaderLimitTask(this);
+		chunkLoaderLimitTask.runTaskTimer(
+				this,
+				20L * chunkLoaderLimitManager.getCheckIntervalSeconds(),
+				20L * chunkLoaderLimitManager.getCheckIntervalSeconds()
 		);
 	}
 }

@@ -170,3 +170,4 @@ chunkloader:
   debug-living-enabled: "&7生物传送门限制：&e{value}"
   debug-living-max: "&7生物最大传送次数：&e{value}"
   debug-check-interval: "&7检查间隔：&e{value} 秒"
+  ender-pearl-removed: "&c你的末影珍珠已存在超过 &e{seconds}&c 秒，已被自动清除。"

@@ -172,3 +172,4 @@ chunkloader:
   debug-living-enabled: "&7Living entity portal limit: &e{value}"
   debug-living-max: "&7Living entity max portal teleports: &e{value}"
   debug-check-interval: "&7Check interval: &e{value}s"
+  ender-pearl-removed: "&cYour ender pearl existed for more than &e{seconds}&c seconds and was removed."
