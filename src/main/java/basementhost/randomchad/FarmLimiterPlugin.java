@@ -174,7 +174,7 @@ public final class FarmLimiterPlugin extends JavaPlugin {
 		if (chunkMobUnloadTask != null) {
 			chunkMobUnloadTask.cancel();
 		}
-		
+
 		if (chunkLoaderLimitTask != null) {
 			chunkLoaderLimitTask.cancel();
 		}
