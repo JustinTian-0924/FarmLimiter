@@ -1110,5 +1110,20 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("chunkloader.debug-check-interval", Map.of(
 				"value", chunkLoaderLimitManager.getCheckIntervalSeconds()
 		)));
+		sender.sendMessage(lang("chunkloader.debug-world-filter-mode", Map.of(
+				"value", chunkLoaderLimitManager.getWorldFilterMode().name()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-world-filter-worlds", Map.of(
+				"value", chunkLoaderLimitManager.getFilteredWorlds().toString()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-ignored-entity-types", Map.of(
+				"value", chunkLoaderLimitManager.getIgnoredEntityTypes().toString()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-admin-notify", Map.of(
+				"value", chunkLoaderLimitManager.shouldNotifyAdminOnPortalLimit()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-admin-notify-radius", Map.of(
+				"value", chunkLoaderLimitManager.getAdminNotifyRadiusBlocks()
+		)));
 	}
 }

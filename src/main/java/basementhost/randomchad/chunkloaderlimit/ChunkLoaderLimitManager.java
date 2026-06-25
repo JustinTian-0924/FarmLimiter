@@ -1,15 +1,23 @@
 package basementhost.randomchad.chunkloaderlimit;
 
 import basementhost.randomchad.FarmLimiterPlugin;
+import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
 
 import java.io.File;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 
 public class ChunkLoaderLimitManager {
 	private final FarmLimiterPlugin plugin;
 	private final File configFile;
 
 	private YamlConfiguration moduleConfig;
+
+	private final Set<String> filteredWorlds = new HashSet<>();
+	private final Set<EntityType> ignoredEntityTypes = new HashSet<>();
 
 	public ChunkLoaderLimitManager(FarmLimiterPlugin plugin) {
 		this.plugin = plugin;
@@ -22,6 +30,70 @@ public class ChunkLoaderLimitManager {
 		}
 
 		moduleConfig = YamlConfiguration.loadConfiguration(configFile);
+		loadWorldFilter();
+		loadEntityFilter();
+	}
+
+	private void loadWorldFilter() {
+		filteredWorlds.clear();
+
+		for (String worldName : moduleConfig.getStringList("world-filter.worlds")) {
+			filteredWorlds.add(worldName.toLowerCase(Locale.ROOT));
+		}
+	}
+
+	private void loadEntityFilter() {
+		ignoredEntityTypes.clear();
+
+		for (String entityName : moduleConfig.getStringList("entity-filter.ignored-types")) {
+			try {
+				ignoredEntityTypes.add(EntityType.valueOf(entityName.toUpperCase(Locale.ROOT)));
+			} catch (IllegalArgumentException exception) {
+				plugin.getLogger().warning("Unknown chunk-loader-limit ignored entity type: " + entityName);
+			}
+		}
+	}
+
+	public ChunkLoaderLimitWorldFilterMode getWorldFilterMode() {
+		String modeName = moduleConfig.getString("world-filter.mode", "BLACKLIST");
+
+		try {
+			return ChunkLoaderLimitWorldFilterMode.valueOf(modeName.toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			plugin.getLogger().warning("Unknown chunk-loader-limit world-filter mode: " + modeName);
+			return ChunkLoaderLimitWorldFilterMode.BLACKLIST;
+		}
+	}
+
+	public boolean isWorldAllowed(World world) {
+		String worldName = world.getName().toLowerCase(Locale.ROOT);
+		boolean listed = filteredWorlds.contains(worldName);
+
+		if (getWorldFilterMode() == ChunkLoaderLimitWorldFilterMode.WHITELIST) {
+			return listed;
+		}
+
+		return !listed;
+	}
+
+	public boolean isEntityTypeIgnored(EntityType entityType) {
+		return ignoredEntityTypes.contains(entityType);
+	}
+
+	public Set<String> getFilteredWorlds() {
+		return new HashSet<>(filteredWorlds);
+	}
+
+	public Set<EntityType> getIgnoredEntityTypes() {
+		return new HashSet<>(ignoredEntityTypes);
+	}
+
+	public boolean shouldNotifyAdminOnPortalLimit() {
+		return moduleConfig.getBoolean("notify.admin-on-portal-limit", true);
+	}
+
+	public int getAdminNotifyRadiusBlocks() {
+		return Math.max(0, moduleConfig.getInt("notify.admin-radius-blocks", 48));
 	}
 
 	public boolean isEnabled() {

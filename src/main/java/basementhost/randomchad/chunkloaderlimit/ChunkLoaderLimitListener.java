@@ -1,6 +1,7 @@
 package basementhost.randomchad.chunkloaderlimit;
 
 import basementhost.randomchad.FarmLimiterPlugin;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Boat;
@@ -19,6 +20,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.projectiles.ProjectileSource;
+
+import java.util.Map;
 
 public class ChunkLoaderLimitListener implements Listener {
 	private final FarmLimiterPlugin plugin;
@@ -93,6 +96,14 @@ public class ChunkLoaderLimitListener implements Listener {
 
 		Entity entity = event.getEntity();
 
+		if (!chunkLoaderLimitManager.isWorldAllowed(entity.getWorld())) {
+			return;
+		}
+
+		if (chunkLoaderLimitManager.isEntityTypeIgnored(entity.getType())) {
+			return;
+		}
+
 		if (entity instanceof Player) {
 			return;
 		}
@@ -140,6 +151,7 @@ public class ChunkLoaderLimitListener implements Listener {
 		}
 
 		debugPortalLimitExceeded(minecart, "minecart", teleportCount, maxTeleports, true);
+		notifyNearbyAdmins(minecart, "minecart", teleportCount, maxTeleports);
 		minecart.remove();
 	}
 
@@ -166,6 +178,7 @@ public class ChunkLoaderLimitListener implements Listener {
 		}
 
 		debugPortalLimitExceeded(boat, "boat", teleportCount, maxTeleports, true);
+		notifyNearbyAdmins(boat, "boat", teleportCount, maxTeleports);
 		boat.remove();
 	}
 
@@ -186,11 +199,13 @@ public class ChunkLoaderLimitListener implements Listener {
 
 		if (chunkLoaderLimitManager.shouldRemoveItemOnExceed()) {
 			debugPortalLimitExceeded(item, "item", teleportCount, maxTeleports, true);
+			notifyNearbyAdmins(item, "item", teleportCount, maxTeleports);
 			item.remove();
 			return;
 		}
 
 		debugPortalLimitExceeded(item, "item", teleportCount, maxTeleports, false);
+		notifyNearbyAdmins(item, "item", teleportCount, maxTeleports);
 	}
 
 	private void handleLivingEntityPortal(EntityPortalEvent event, LivingEntity livingEntity) {
@@ -210,11 +225,13 @@ public class ChunkLoaderLimitListener implements Listener {
 
 		if (chunkLoaderLimitManager.shouldRemoveLivingEntityOnExceed()) {
 			debugPortalLimitExceeded(livingEntity, "living entity", teleportCount, maxTeleports, true);
+			notifyNearbyAdmins(livingEntity, "living entity", teleportCount, maxTeleports);
 			livingEntity.remove();
 			return;
 		}
 
 		debugPortalLimitExceeded(livingEntity, "living entity", teleportCount, maxTeleports, false);
+		notifyNearbyAdmins(livingEntity, "living entity", teleportCount, maxTeleports);
 	}
 
 	private int increasePortalTeleportCount(Entity entity) {
@@ -308,5 +325,44 @@ public class ChunkLoaderLimitListener implements Listener {
 				+ entity.getLocation().getBlockY()
 				+ ","
 				+ entity.getLocation().getBlockZ());
+	}
+
+	private void notifyNearbyAdmins(
+			Entity entity,
+			String typeName,
+			int teleportCount,
+			int maxTeleports
+	) {
+		if (!chunkLoaderLimitManager.shouldNotifyAdminOnPortalLimit()) {
+			return;
+		}
+
+		int radius = chunkLoaderLimitManager.getAdminNotifyRadiusBlocks();
+
+		if (radius <= 0) {
+			return;
+		}
+
+		double radiusSquared = radius * radius;
+
+		for (Player player : entity.getWorld().getPlayers()) {
+			if (!player.hasPermission("farmlimiter.admin")) {
+				continue;
+			}
+
+			if (player.getLocation().distanceSquared(entity.getLocation()) > radiusSquared) {
+				continue;
+			}
+
+			player.sendMessage(Component.text(plugin.getLangManager().get("chunkloader.portal-limit-admin-notify", Map.of(
+					"type", typeName,
+					"entity", entity.getType().name(),
+					"count", teleportCount,
+					"max", maxTeleports,
+					"x", entity.getLocation().getBlockX(),
+					"y", entity.getLocation().getBlockY(),
+					"z", entity.getLocation().getBlockZ()
+			))));
+		}
 	}
 }

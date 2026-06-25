@@ -37,6 +37,10 @@ public class ChunkLoaderLimitTask extends BukkitRunnable {
 		}
 
 		for (World world : plugin.getServer().getWorlds()) {
+			if (!chunkLoaderLimitManager.isWorldAllowed(world)) {
+				continue;
+			}
+
 			for (EnderPearl enderPearl : world.getEntitiesByClass(EnderPearl.class)) {
 				checkEnderPearl(enderPearl);
 			}

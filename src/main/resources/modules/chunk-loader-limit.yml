@@ -32,5 +32,22 @@ portal-entity:
 check:
   interval-seconds: 60
 
+world-filter:
+  # BLACKLIST or WHITELIST
+  mode: "BLACKLIST"
+  # BLACKLIST: worlds here are ignored.
+  # WHITELIST: only worlds here are checked.
+  worlds:
+    - "example_disabled_world"
+entity-filter:
+  # Entity types that portal teleport limit will ignore.
+  ignored-types:
+    - "VILLAGER"
+    - "WOLF"
+    - "CAT"
+notify:
+  admin-on-portal-limit: true
+  admin-radius-blocks: 48
+
 debug:
   enabled: false
