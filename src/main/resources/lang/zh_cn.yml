@@ -155,7 +155,7 @@ chunkmob:
   debug-cleanup-result-radius: "&7清理结果通知范围：&e{value} 格"
 
 chunkloader:
-  usage: "&e用法：/fl chunkloader debug"
+  usage: "&e用法：/fl chunkloader <debug|status|list|clear>"
   debug-header: "&aChunk Loader 限制模块调试信息："
   debug-enabled: "&7模块启用：&e{value}"
   debug-ender-pearl-enabled: "&7末影珍珠 TTL：&e{value}"
@@ -186,3 +186,5 @@ chunkloader:
   list-header: "&aChunk Loader 可疑对象列表：&7范围：&e{scope}&7，显示数量：&e{count}"
   list-empty: "&a没有找到已记录的可疑对象。"
   list-entry: "&7- &e{type}&7/&e{entity}&7 世界：&e{world}&7 位置：&e{x}, {y}, {z}&7 传送次数：&e{teleports}&7 珍珠存在：&e{age}s"
+  clear-usage: "&e用法：/fl chunkloader clear <nearby|world|all>"
+  clear-result: "&aChunk Loader 可疑对象清理完成：&7范围：&e{scope}&7，清理数量：&e{removed}"

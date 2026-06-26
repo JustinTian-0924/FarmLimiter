@@ -876,6 +876,7 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 				suggestions.add("debug");
 				suggestions.add("status");
 				suggestions.add("list");
+				suggestions.add("clear");
 			}
 			String input = args[1].toLowerCase(Locale.ROOT);
 			return suggestions.stream()
@@ -885,11 +886,16 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args.length == 3
 				&& args[0].equalsIgnoreCase("chunkloader")
-				&& (args[1].equalsIgnoreCase("status") || args[1].equalsIgnoreCase("list"))) {
+				&& (args[1].equalsIgnoreCase("status")
+				|| args[1].equalsIgnoreCase("list")
+				|| args[1].equalsIgnoreCase("clear"))) {
 			List<String> suggestions = new ArrayList<>();
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("nearby");
 				suggestions.add("world");
+				if (args[1].equalsIgnoreCase("clear")) {
+					suggestions.add("all");
+				}
 			}
 			String input = args[2].toLowerCase(Locale.ROOT);
 			return suggestions.stream()
@@ -1089,6 +1095,11 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 
 		if (args.length >= 2 && args[1].equalsIgnoreCase("list")) {
 			handleChunkLoaderList(sender, args);
+			return;
+		}
+
+		if (args.length >= 2 && args[1].equalsIgnoreCase("clear")) {
+			handleChunkLoaderClear(sender, args);
 			return;
 		}
 
@@ -1480,5 +1491,117 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 					"age", entry.getEnderPearlAgeSeconds()
 			)));
 		}
+	}
+
+	private void handleChunkLoaderClear(CommandSender sender, String[] args) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		if (args.length < 3) {
+			sender.sendMessage(lang("chunkloader.clear-usage"));
+			return;
+		}
+
+		if (args[2].equalsIgnoreCase("nearby")) {
+			if (!(sender instanceof Player player)) {
+				sender.sendMessage(lang("command.player-only"));
+				return;
+			}
+
+			int removed = clearChunkLoaderEntriesNearby(player);
+			sender.sendMessage(lang("chunkloader.clear-result", Map.of(
+					"scope", "nearby",
+					"removed", removed
+			)));
+			return;
+		}
+
+		if (args[2].equalsIgnoreCase("world")) {
+			if (!(sender instanceof Player player)) {
+				sender.sendMessage(lang("command.player-only"));
+				return;
+			}
+
+			int removed = clearChunkLoaderEntriesInWorld(player.getWorld());
+			sender.sendMessage(lang("chunkloader.clear-result", Map.of(
+					"scope", player.getWorld().getName(),
+					"removed", removed
+			)));
+			return;
+		}
+
+		if (args[2].equalsIgnoreCase("all")) {
+			int removed = clearChunkLoaderEntriesAll();
+			sender.sendMessage(lang("chunkloader.clear-result", Map.of(
+					"scope", "all",
+					"removed", removed
+			)));
+			return;
+		}
+
+		sender.sendMessage(lang("chunkloader.clear-usage"));
+	}
+
+	private int clearChunkLoaderEntriesAll() {
+		int removed = 0;
+
+		for (World world : plugin.getServer().getWorlds()) {
+			removed += clearChunkLoaderEntriesInWorld(world);
+		}
+
+		return removed;
+	}
+
+	private int clearChunkLoaderEntriesInWorld(World world) {
+		int removed = 0;
+
+		for (Entity entity : new ArrayList<>(world.getEntities())) {
+			if (removeChunkLoaderEntryIfTracked(entity)) {
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	private int clearChunkLoaderEntriesNearby(Player player) {
+		int removed = 0;
+		int radius = chunkLoaderLimitManager.getStatusNearbyRadiusBlocks();
+		double radiusSquared = radius * radius;
+
+		for (Entity entity : new ArrayList<>(player.getWorld().getEntities())) {
+			if (entity.getLocation().distanceSquared(player.getLocation()) > radiusSquared) {
+				continue;
+			}
+
+			if (removeChunkLoaderEntryIfTracked(entity)) {
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	private boolean removeChunkLoaderEntryIfTracked(Entity entity) {
+		if (entity instanceof Player) {
+			return false;
+		}
+
+		PersistentDataContainer dataContainer = entity.getPersistentDataContainer();
+
+		if (entity instanceof EnderPearl
+				&& dataContainer.has(chunkLoaderLimitManager.getEnderPearlCreatedAtKey(), PersistentDataType.LONG)) {
+			entity.remove();
+			return true;
+		}
+
+		if (!dataContainer.has(chunkLoaderLimitManager.getPortalTeleportCountKey(), PersistentDataType.INTEGER)) {
+			return false;
+		}
+
+		entity.remove();
+		return true;
 	}
 }
