@@ -25,6 +25,10 @@ public class ChunkLoaderLimitManager {
 		this.configFile = new File(plugin.getDataFolder(), "modules/chunk-loader-limit.yml");
 	}
 
+	public int getListMaxResults() {
+		return Math.max(1, moduleConfig.getInt("list.max-results", 16));
+	}
+
 	public void load() {
 		if (!configFile.exists()) {
 			plugin.saveResource("modules/chunk-loader-limit.yml", false);

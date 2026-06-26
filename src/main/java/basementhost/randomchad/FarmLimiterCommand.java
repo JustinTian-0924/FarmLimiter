@@ -1,6 +1,7 @@
 package basementhost.randomchad;
 
 import basementhost.randomchad.breeding.BreedingLimitManager;
+import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitEntry;
 import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitManager;
 import basementhost.randomchad.chunkloaderlimit.ChunkLoaderLimitStatus;
 import basementhost.randomchad.chunkmobunload.ChunkMobUnloadManager;
@@ -20,6 +21,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.*;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -873,17 +875,17 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("debug");
 				suggestions.add("status");
+				suggestions.add("list");
 			}
 			String input = args[1].toLowerCase(Locale.ROOT);
 			return suggestions.stream()
 					.filter(suggestion -> suggestion.toLowerCase(Locale.ROOT).startsWith(input))
 					.toList();
-
 		}
 
 		if (args.length == 3
 				&& args[0].equalsIgnoreCase("chunkloader")
-				&& args[1].equalsIgnoreCase("status")) {
+				&& (args[1].equalsIgnoreCase("status") || args[1].equalsIgnoreCase("list"))) {
 			List<String> suggestions = new ArrayList<>();
 			if (sender.hasPermission("farmlimiter.admin")) {
 				suggestions.add("nearby");
@@ -1085,6 +1087,11 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 			return;
 		}
 
+		if (args.length >= 2 && args[1].equalsIgnoreCase("list")) {
+			handleChunkLoaderList(sender, args);
+			return;
+		}
+
 		sender.sendMessage(lang("chunkloader.usage"));
 	}
 
@@ -1283,5 +1290,195 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("chunkloader.debug-admin-notify-radius", Map.of(
 				"value", chunkLoaderLimitManager.getAdminNotifyRadiusBlocks()
 		)));
+	}
+
+	private void handleChunkLoaderList(CommandSender sender, String[] args) {
+		if (!sender.hasPermission("farmlimiter.admin")) {
+			sender.sendMessage(lang("command.no-permission"));
+			return;
+		}
+
+		List<ChunkLoaderLimitEntry> entries;
+
+		if (args.length >= 3 && args[2].equalsIgnoreCase("nearby")) {
+			if (!(sender instanceof Player player)) {
+				sender.sendMessage(lang("command.player-only"));
+				return;
+			}
+
+			entries = collectChunkLoaderEntriesNearby(player);
+			sendChunkLoaderEntries(sender, "nearby", entries);
+			return;
+		}
+
+		if (args.length >= 3 && args[2].equalsIgnoreCase("world")) {
+			if (!(sender instanceof Player player)) {
+				sender.sendMessage(lang("command.player-only"));
+				return;
+			}
+
+			entries = collectChunkLoaderEntriesInWorld(player.getWorld());
+			sendChunkLoaderEntries(sender, player.getWorld().getName(), entries);
+			return;
+		}
+
+		entries = collectChunkLoaderEntriesAll();
+		sendChunkLoaderEntries(sender, "all", entries);
+	}
+
+	private List<ChunkLoaderLimitEntry> collectChunkLoaderEntriesAll() {
+		List<ChunkLoaderLimitEntry> entries = new ArrayList<>();
+
+		for (World world : plugin.getServer().getWorlds()) {
+			collectChunkLoaderEntriesFromWorld(world, entries);
+		}
+
+		sortChunkLoaderEntries(entries);
+		return limitChunkLoaderEntries(entries);
+	}
+
+	private List<ChunkLoaderLimitEntry> collectChunkLoaderEntriesInWorld(World world) {
+		List<ChunkLoaderLimitEntry> entries = new ArrayList<>();
+
+		collectChunkLoaderEntriesFromWorld(world, entries);
+
+		sortChunkLoaderEntries(entries);
+		return limitChunkLoaderEntries(entries);
+	}
+
+	private List<ChunkLoaderLimitEntry> collectChunkLoaderEntriesNearby(Player player) {
+		List<ChunkLoaderLimitEntry> entries = new ArrayList<>();
+		int radius = chunkLoaderLimitManager.getStatusNearbyRadiusBlocks();
+		double radiusSquared = radius * radius;
+
+		for (Entity entity : player.getWorld().getEntities()) {
+			if (entity.getLocation().distanceSquared(player.getLocation()) > radiusSquared) {
+				continue;
+			}
+
+			ChunkLoaderLimitEntry entry = createChunkLoaderEntry(entity);
+
+			if (entry != null) {
+				entries.add(entry);
+			}
+		}
+
+		sortChunkLoaderEntries(entries);
+		return limitChunkLoaderEntries(entries);
+	}
+
+	private void collectChunkLoaderEntriesFromWorld(World world, List<ChunkLoaderLimitEntry> entries) {
+		for (Entity entity : world.getEntities()) {
+			ChunkLoaderLimitEntry entry = createChunkLoaderEntry(entity);
+
+			if (entry != null) {
+				entries.add(entry);
+			}
+		}
+	}
+
+	private ChunkLoaderLimitEntry createChunkLoaderEntry(Entity entity) {
+		PersistentDataContainer dataContainer = entity.getPersistentDataContainer();
+
+		if (entity instanceof EnderPearl
+				&& dataContainer.has(chunkLoaderLimitManager.getEnderPearlCreatedAtKey(), PersistentDataType.LONG)) {
+			long createdAt = dataContainer.getOrDefault(
+					chunkLoaderLimitManager.getEnderPearlCreatedAtKey(),
+					PersistentDataType.LONG,
+					System.currentTimeMillis()
+			);
+
+			long ageSeconds = Math.max(0, (System.currentTimeMillis() - createdAt) / 1000L);
+
+			return new ChunkLoaderLimitEntry(
+					"ENDER_PEARL",
+					entity.getType().name(),
+					entity.getWorld().getName(),
+					entity.getLocation().getBlockX(),
+					entity.getLocation().getBlockY(),
+					entity.getLocation().getBlockZ(),
+					0,
+					ageSeconds
+			);
+		}
+
+		if (!dataContainer.has(chunkLoaderLimitManager.getPortalTeleportCountKey(), PersistentDataType.INTEGER)) {
+			return null;
+		}
+
+		int portalTeleports = dataContainer.getOrDefault(
+				chunkLoaderLimitManager.getPortalTeleportCountKey(),
+				PersistentDataType.INTEGER,
+				0
+		);
+
+		String type = "OTHER";
+
+		if (entity instanceof Minecart) {
+			type = "MINECART";
+		} else if (entity instanceof Boat) {
+			type = "BOAT";
+		} else if (entity instanceof Item) {
+			type = "ITEM";
+		} else if (entity instanceof LivingEntity && !(entity instanceof Player)) {
+			type = "LIVING_ENTITY";
+		}
+
+		return new ChunkLoaderLimitEntry(
+				type,
+				entity.getType().name(),
+				entity.getWorld().getName(),
+				entity.getLocation().getBlockX(),
+				entity.getLocation().getBlockY(),
+				entity.getLocation().getBlockZ(),
+				portalTeleports,
+				0
+		);
+	}
+
+	private void sortChunkLoaderEntries(List<ChunkLoaderLimitEntry> entries) {
+		entries.sort(Comparator
+				.comparingInt(ChunkLoaderLimitEntry::getPortalTeleports)
+				.reversed()
+				.thenComparing(Comparator.comparingLong(ChunkLoaderLimitEntry::getEnderPearlAgeSeconds).reversed()));
+	}
+
+	private List<ChunkLoaderLimitEntry> limitChunkLoaderEntries(List<ChunkLoaderLimitEntry> entries) {
+		int maxResults = chunkLoaderLimitManager.getListMaxResults();
+
+		if (entries.size() <= maxResults) {
+			return entries;
+		}
+
+		return new ArrayList<>(entries.subList(0, maxResults));
+	}
+
+	private void sendChunkLoaderEntries(
+			CommandSender sender,
+			String scope,
+			List<ChunkLoaderLimitEntry> entries
+	) {
+		sender.sendMessage(lang("chunkloader.list-header", Map.of(
+				"scope", scope,
+				"count", entries.size()
+		)));
+
+		if (entries.isEmpty()) {
+			sender.sendMessage(lang("chunkloader.list-empty"));
+			return;
+		}
+
+		for (ChunkLoaderLimitEntry entry : entries) {
+			sender.sendMessage(lang("chunkloader.list-entry", Map.of(
+					"type", entry.getType(),
+					"entity", entry.getEntityType(),
+					"world", entry.getWorld(),
+					"x", entry.getX(),
+					"y", entry.getY(),
+					"z", entry.getZ(),
+					"teleports", entry.getPortalTeleports(),
+					"age", entry.getEnderPearlAgeSeconds()
+			)));
+		}
 	}
 }

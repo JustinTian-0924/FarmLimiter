@@ -50,5 +50,7 @@ notify:
   admin-radius-blocks: 48
 status:
   nearby-radius-blocks: 64
+list:
+  max-results: 16
 debug:
   enabled: false
