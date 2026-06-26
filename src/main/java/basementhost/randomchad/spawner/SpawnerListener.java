@@ -104,6 +104,7 @@ public class SpawnerListener implements Listener {
 				spawnerManager.applySpawnerSettings(spawner);
 			}
 		}
+		spawnerManager.refreshChunkSpawnerResources(event.getChunk());
 	}
 
 	private void sendEmptySpawnerActionbar(Location location, EntityType entityType) {

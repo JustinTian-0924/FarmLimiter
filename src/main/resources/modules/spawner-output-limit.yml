@@ -22,6 +22,13 @@ default:
 
   # Seconds between each regeneration cycle.
   regen-interval-seconds: 90
+resource-regen:
+  # Whether spawner resource should regenerate while the spawner chunk is unloaded.
+  # If true, elapsed real time is counted when the spawner data is loaded again.
+  regen-while-chunk-unloaded: true
+  # Whether spawner resource should regenerate while the chunk is loaded,
+  # but the spawner is not active because no player is within required-player-range.
+  regen-while-inactive-loaded: true
   #Notify player in certain raidus when the spawner is depleated
 notify:
   empty-actionbar:

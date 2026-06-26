@@ -110,9 +110,11 @@ public class SpawnerManager {
 					lastRegenTime,
 					lastAccessTime
 			);
-
-			applyRegen(pool);
-
+			if (shouldRegenWhileChunkUnloaded()) {
+				applyRegen(pool);
+			} else {
+				pool.lastRegenTime = now;
+			}
 			if (shouldRemovePool(pool, now)) {
 				markRegionDirty(regionId);
 				continue;
@@ -203,6 +205,9 @@ public class SpawnerManager {
 	}
 
 	public int cleanupAndGetRemovedCount() {
+		if (shouldRegenWhileInactiveLoaded()) {
+			refreshLoadedChunkSpawnerResources();
+		}
 		long now = System.currentTimeMillis();
 
 		int before = spawnerPools.size();
@@ -213,13 +218,13 @@ public class SpawnerManager {
 			Map.Entry<String, SpawnerPool> entry = iterator.next();
 			SpawnerPool pool = entry.getValue();
 
-			int beforeResource = pool.resource;
-			long beforeRegenTime = pool.lastRegenTime;
-
-			applyRegen(pool);
-
-			if (beforeResource != pool.resource || beforeRegenTime != pool.lastRegenTime) {
-				markRegionDirty(pool.regionId);
+			if (shouldRegenWhileInactiveLoaded()) {
+				int beforeResource = pool.resource;
+				long beforeRegenTime = pool.lastRegenTime;
+				applyRegen(pool);
+				if (beforeResource != pool.resource || beforeRegenTime != pool.lastRegenTime) {
+					markRegionDirty(pool.regionId);
+				}
 			}
 
 			if (shouldRemovePool(pool, now)) {
@@ -774,6 +779,52 @@ public class SpawnerManager {
 		return appliedCount;
 	}
 
+	public void refreshLoadedChunkSpawnerResources() {
+		if (!isEnabled() || !shouldRegenWhileInactiveLoaded()) {
+			return;
+		}
+
+		for (World world : Bukkit.getWorlds()) {
+			for (Chunk chunk : world.getLoadedChunks()) {
+				refreshChunkSpawnerResources(chunk);
+			}
+		}
+	}
+
+	public void refreshChunkSpawnerResources(Chunk chunk) {
+		if (!isEnabled() || !shouldRegenWhileInactiveLoaded()) {
+			return;
+		}
+
+		for (BlockState blockState : chunk.getTileEntities()) {
+			if (blockState instanceof CreatureSpawner spawner) {
+				refreshKnownSpawnerResource(spawner.getLocation(), spawner.getSpawnedType());
+			}
+		}
+	}
+
+	private void refreshKnownSpawnerResource(Location location, EntityType entityType) {
+		ensureRegionLoaded(location);
+
+		String spawnerKey = getSpawnerKey(location);
+		SpawnerPool pool = spawnerPools.get(spawnerKey);
+
+		if (pool == null) {
+			return;
+		}
+
+		pool.entityTypeName = entityType.name();
+
+		int beforeResource = pool.resource;
+		long beforeRegenTime = pool.lastRegenTime;
+
+		applyRegen(pool);
+
+		if (beforeResource != pool.resource || beforeRegenTime != pool.lastRegenTime) {
+			markRegionDirty(pool.regionId);
+		}
+	}
+
 	public boolean isDebugEnabled() {
 		return moduleConfig.getBoolean("debug.enabled", false);
 	}
@@ -788,6 +839,14 @@ public class SpawnerManager {
 
 	public boolean shouldLogSpawnerSettingsApply() {
 		return isDebugEnabled() && moduleConfig.getBoolean("debug.log-apply-settings", false);
+	}
+
+	public boolean shouldRegenWhileChunkUnloaded() {
+		return moduleConfig.getBoolean("resource-regen.regen-while-chunk-unloaded", true);
+	}
+
+	public boolean shouldRegenWhileInactiveLoaded() {
+		return moduleConfig.getBoolean("resource-regen.regen-while-inactive-loaded", true);
 	}
 
 	public void setDebug(boolean enabled) {
