@@ -188,3 +188,8 @@ chunkloader:
   list-entry: "&7- &e{type}&7/&e{entity}&7 世界：&e{world}&7 位置：&e{x}, {y}, {z}&7 传送次数：&e{teleports}&7 珍珠存在：&e{age}s"
   clear-usage: "&e用法：/fl chunkloader clear <nearby|world|all>"
   clear-result: "&aChunk Loader 可疑对象清理完成：&7范围：&e{scope}&7，清理数量：&e{removed}"
+  portal-rate-limit-admin-notify: "&c检测到高频矿车传送门 Chunk Loader：&e{world} {x}, {y}, {z}&c 在 &e{seconds}&c 秒内通过 &e{count}/{max}&c 次，传送门已被处理。"
+  debug-portal-rate-enabled: "&7传送门频率限制：&e{value}"
+  debug-portal-rate-window: "&7传送门统计窗口：&e{value} 秒"
+  debug-portal-rate-max: "&7窗口内最大矿车通过次数：&e{value}"
+  debug-portal-rate-break: "&7超限破坏传送门：&e{value}"

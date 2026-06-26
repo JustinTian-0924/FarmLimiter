@@ -29,6 +29,20 @@ portal-entity:
     max-portal-teleports: 16
     remove-on-exceed: false
 
+  portal-rate-limit:
+    enabled: true
+    # Only count minecart-like entities for now.
+    minecart-only: true
+    # Time window.
+    window-seconds: 600
+    # If one portal is used by minecarts more than this amount in the window,
+    # the portal will be broken.
+    max-minecart-teleports: 64
+    # Break all connected nether portal blocks.
+    break-portal: true
+    # Notify nearby admins when a portal is broken.
+    notify-admins: true
+
 check:
   interval-seconds: 60
 

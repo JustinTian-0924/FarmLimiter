@@ -1301,6 +1301,18 @@ public class FarmLimiterCommand implements CommandExecutor, TabCompleter {
 		sender.sendMessage(lang("chunkloader.debug-admin-notify-radius", Map.of(
 				"value", chunkLoaderLimitManager.getAdminNotifyRadiusBlocks()
 		)));
+		sender.sendMessage(lang("chunkloader.debug-portal-rate-enabled", Map.of(
+				"value", chunkLoaderLimitManager.isPortalRateLimitEnabled()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-portal-rate-window", Map.of(
+				"value", chunkLoaderLimitManager.getPortalRateLimitWindowSeconds()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-portal-rate-max", Map.of(
+				"value", chunkLoaderLimitManager.getPortalRateLimitMaxMinecartTeleports()
+		)));
+		sender.sendMessage(lang("chunkloader.debug-portal-rate-break", Map.of(
+				"value", chunkLoaderLimitManager.shouldBreakPortalOnRateLimit()
+		)));
 	}
 
 	private void handleChunkLoaderList(CommandSender sender, String[] args) {

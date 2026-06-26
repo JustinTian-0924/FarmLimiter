@@ -196,4 +196,28 @@ public class ChunkLoaderLimitManager {
 	public NamespacedKey getPortalTeleportCountKey() {
 		return new NamespacedKey(plugin, "chunkloader_portal_teleport_count");
 	}
+
+	public boolean isPortalRateLimitEnabled() {
+		return moduleConfig.getBoolean("portal-entity.portal-rate-limit.enabled", true);
+	}
+
+	public boolean isPortalRateLimitMinecartOnly() {
+		return moduleConfig.getBoolean("portal-entity.portal-rate-limit.minecart-only", true);
+	}
+
+	public int getPortalRateLimitWindowSeconds() {
+		return Math.max(1, moduleConfig.getInt("portal-entity.portal-rate-limit.window-seconds", 600));
+	}
+
+	public int getPortalRateLimitMaxMinecartTeleports() {
+		return Math.max(1, moduleConfig.getInt("portal-entity.portal-rate-limit.max-minecart-teleports", 64));
+	}
+
+	public boolean shouldBreakPortalOnRateLimit() {
+		return moduleConfig.getBoolean("portal-entity.portal-rate-limit.break-portal", true);
+	}
+
+	public boolean shouldNotifyAdminsOnPortalRateLimit() {
+		return moduleConfig.getBoolean("portal-entity.portal-rate-limit.notify-admins", true);
+	}
 }

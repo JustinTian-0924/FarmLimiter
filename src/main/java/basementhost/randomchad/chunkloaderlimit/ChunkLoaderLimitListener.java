@@ -2,8 +2,11 @@ package basementhost.randomchad.chunkloaderlimit;
 
 import basementhost.randomchad.FarmLimiterPlugin;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Boat;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
@@ -21,7 +24,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.projectiles.ProjectileSource;
 
-import java.util.Map;
+import java.util.*;
 
 public class ChunkLoaderLimitListener implements Listener {
 	private final FarmLimiterPlugin plugin;
@@ -29,6 +32,7 @@ public class ChunkLoaderLimitListener implements Listener {
 	private final NamespacedKey pearlCreatedAtKey;
 	private final NamespacedKey pearlOwnerKey;
 	private final NamespacedKey portalTeleportCountKey;
+	private final Map<ChunkLoaderPortalKey, Queue<Long>> portalMinecartTeleportTimes = new HashMap<>();
 
 	public ChunkLoaderLimitListener(FarmLimiterPlugin plugin) {
 		this.plugin = plugin;
@@ -109,6 +113,10 @@ public class ChunkLoaderLimitListener implements Listener {
 		}
 
 		if (entity instanceof Minecart minecart) {
+			if (handleMinecartPortalRateLimit(event, minecart)) {
+				return;
+			}
+
 			handleMinecartPortal(event, minecart);
 			return;
 		}
@@ -364,5 +372,247 @@ public class ChunkLoaderLimitListener implements Listener {
 					"z", entity.getLocation().getBlockZ()
 			))));
 		}
+	}
+
+	private boolean handleMinecartPortalRateLimit(EntityPortalEvent event, Minecart minecart) {
+		if (!chunkLoaderLimitManager.isPortalRateLimitEnabled()) {
+			return false;
+		}
+
+		Block portalBlock = findNearbyPortalBlock(minecart.getLocation());
+
+		if (portalBlock == null) {
+			return false;
+		}
+
+		List<Block> portalBlocks = findConnectedPortalBlocks(portalBlock);
+
+		if (portalBlocks.isEmpty()) {
+			return false;
+		}
+
+		ChunkLoaderPortalKey portalKey = createPortalKey(portalBlocks);
+		int count = recordPortalMinecartTeleport(portalKey);
+
+		int maxTeleports = chunkLoaderLimitManager.getPortalRateLimitMaxMinecartTeleports();
+
+		if (count <= maxTeleports) {
+			debugPortalRate(minecart, portalKey, count, maxTeleports);
+			return false;
+		}
+
+		event.setCancelled(true);
+
+		if (chunkLoaderLimitManager.shouldBreakPortalOnRateLimit()) {
+			breakPortalBlocks(portalBlocks);
+		}
+
+		notifyPortalRateLimitAdmins(minecart, portalKey, count, maxTeleports);
+		debugPortalRateLimitExceeded(minecart, portalKey, count, maxTeleports);
+
+		return true;
+	}
+
+	private Block findNearbyPortalBlock(Location location) {
+		World world = location.getWorld();
+
+		if (world == null) {
+			return null;
+		}
+
+		int baseX = location.getBlockX();
+		int baseY = location.getBlockY();
+		int baseZ = location.getBlockZ();
+
+		for (int x = baseX - 2; x <= baseX + 2; x++) {
+			for (int y = baseY - 2; y <= baseY + 2; y++) {
+				for (int z = baseZ - 2; z <= baseZ + 2; z++) {
+					Block block = world.getBlockAt(x, y, z);
+
+					if (block.getType() == Material.NETHER_PORTAL) {
+						return block;
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	private List<Block> findConnectedPortalBlocks(Block startBlock) {
+		List<Block> portalBlocks = new ArrayList<>();
+		Set<String> visited = new HashSet<>();
+		Queue<Block> queue = new ArrayDeque<>();
+
+		queue.add(startBlock);
+
+		while (!queue.isEmpty()) {
+			Block block = queue.poll();
+			String key = block.getWorld().getName()
+					+ ":"
+					+ block.getX()
+					+ ":"
+					+ block.getY()
+					+ ":"
+					+ block.getZ();
+
+			if (visited.contains(key)) {
+				continue;
+			}
+
+			visited.add(key);
+
+			if (block.getType() != Material.NETHER_PORTAL) {
+				continue;
+			}
+
+			portalBlocks.add(block);
+
+			if (portalBlocks.size() >= 128) {
+				break;
+			}
+
+			queue.add(block.getRelative(1, 0, 0));
+			queue.add(block.getRelative(-1, 0, 0));
+			queue.add(block.getRelative(0, 1, 0));
+			queue.add(block.getRelative(0, -1, 0));
+			queue.add(block.getRelative(0, 0, 1));
+			queue.add(block.getRelative(0, 0, -1));
+		}
+
+		return portalBlocks;
+	}
+
+	private ChunkLoaderPortalKey createPortalKey(List<Block> portalBlocks) {
+		Block first = portalBlocks.get(0);
+
+		int minX = first.getX();
+		int minY = first.getY();
+		int minZ = first.getZ();
+
+		for (Block block : portalBlocks) {
+			minX = Math.min(minX, block.getX());
+			minY = Math.min(minY, block.getY());
+			minZ = Math.min(minZ, block.getZ());
+		}
+
+		return new ChunkLoaderPortalKey(first.getWorld().getName(), minX, minY, minZ);
+	}
+
+	private int recordPortalMinecartTeleport(ChunkLoaderPortalKey portalKey) {
+		long now = System.currentTimeMillis();
+		long windowMillis = chunkLoaderLimitManager.getPortalRateLimitWindowSeconds() * 1000L;
+		Queue<Long> teleportTimes = portalMinecartTeleportTimes.computeIfAbsent(
+				portalKey,
+				key -> new ArrayDeque<>()
+		);
+		while (!teleportTimes.isEmpty() && now - teleportTimes.peek() > windowMillis) {
+			teleportTimes.poll();
+		}
+		teleportTimes.add(now);
+		return teleportTimes.size();
+	}
+
+	private void breakPortalBlocks(List<Block> portalBlocks) {
+		for (Block block : portalBlocks) {
+			if (block.getType() == Material.NETHER_PORTAL) {
+				block.setType(Material.AIR);
+			}
+		}
+	}
+
+	private void notifyPortalRateLimitAdmins(
+			Minecart minecart,
+			ChunkLoaderPortalKey portalKey,
+			int count,
+			int maxTeleports
+	) {
+		if (!chunkLoaderLimitManager.shouldNotifyAdminsOnPortalRateLimit()) {
+			return;
+		}
+
+		if (!chunkLoaderLimitManager.shouldNotifyAdminOnPortalLimit()) {
+			return;
+		}
+
+		int radius = chunkLoaderLimitManager.getAdminNotifyRadiusBlocks();
+
+		if (radius <= 0) {
+			return;
+		}
+
+		double radiusSquared = radius * radius;
+
+		for (Player player : minecart.getWorld().getPlayers()) {
+			if (!player.hasPermission("farmlimiter.admin")) {
+				continue;
+			}
+
+			if (player.getLocation().distanceSquared(minecart.getLocation()) > radiusSquared) {
+				continue;
+			}
+
+			player.sendMessage(Component.text(plugin.getLangManager().get("chunkloader.portal-rate-limit-admin-notify", Map.of(
+					"world", portalKey.getWorldName(),
+					"x", portalKey.getX(),
+					"y", portalKey.getY(),
+					"z", portalKey.getZ(),
+					"count", count,
+					"max", maxTeleports,
+					"seconds", chunkLoaderLimitManager.getPortalRateLimitWindowSeconds()
+			))));
+		}
+	}
+
+	private void debugPortalRate(
+			Minecart minecart,
+			ChunkLoaderPortalKey portalKey,
+			int count,
+			int maxTeleports
+	) {
+		if (!chunkLoaderLimitManager.isDebugEnabled()) {
+			return;
+		}
+
+		plugin.getLogger().info("Tracked portal minecart rate by Chunk_Loader_Limit: portal="
+				+ portalKey.getWorldName()
+				+ " "
+				+ portalKey.getX()
+				+ ","
+				+ portalKey.getY()
+				+ ","
+				+ portalKey.getZ()
+				+ " count="
+				+ count
+				+ "/"
+				+ maxTeleports
+				+ " minecart="
+				+ minecart.getType().name());
+	}
+
+	private void debugPortalRateLimitExceeded(
+			Minecart minecart,
+			ChunkLoaderPortalKey portalKey,
+			int count,
+			int maxTeleports
+	) {
+		if (!chunkLoaderLimitManager.isDebugEnabled()) {
+			return;
+		}
+
+		plugin.getLogger().info("Broke portal by Chunk_Loader_Limit minecart rate limit: portal="
+				+ portalKey.getWorldName()
+				+ " "
+				+ portalKey.getX()
+				+ ","
+				+ portalKey.getY()
+				+ ","
+				+ portalKey.getZ()
+				+ " count="
+				+ count
+				+ "/"
+				+ maxTeleports
+				+ " minecart="
+				+ minecart.getType().name());
 	}
 }

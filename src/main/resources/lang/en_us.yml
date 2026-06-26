@@ -190,3 +190,8 @@ chunkloader:
   list-entry: "&7- &e{type}&7/&e{entity}&7 world: &e{world}&7 pos: &e{x}, {y}, {z}&7 teleports: &e{teleports}&7 pearl age: &e{age}s"
   clear-usage: "&eUsage: /fl chunkloader clear <nearby|world|all>"
   clear-result: "&aChunk Loader suspicious entries cleared: &7scope: &e{scope}&7, removed: &e{removed}"
+  portal-rate-limit-admin-notify: "&cHigh-rate minecart portal Chunk Loader detected: &e{world} {x}, {y}, {z}&c had &e{count}/{max}&c minecart teleports in &e{seconds}&c seconds. Portal was handled."
+  debug-portal-rate-enabled: "&7Portal rate limit: &e{value}"
+  debug-portal-rate-window: "&7Portal rate window: &e{value}s"
+  debug-portal-rate-max: "&7Max minecart teleports in window: &e{value}"
+  debug-portal-rate-break: "&7Break portal on exceed: &e{value}"
